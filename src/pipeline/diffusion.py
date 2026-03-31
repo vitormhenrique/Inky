@@ -189,6 +189,20 @@ def _derive_source_hint(source_name: str | None) -> str | None:
     return " ".join(meaningful)
 
 
+def _derive_reference_hint(reference_path: str | None) -> str | None:
+    """Turn an explicit reference filename into a prompt hint when possible."""
+    if not reference_path:
+        return None
+
+    stem = Path(reference_path).stem
+    cleaned = re.sub(r"[_\-]+", " ", stem).strip().lower()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    if not cleaned:
+        return None
+
+    return cleaned
+
+
 # ── Public API ───────────────────────────────────────────────────────────────
 
 
@@ -198,6 +212,7 @@ def run_diffusion(
     settings: Settings,
     *,
     source_name: str | None = None,
+    reference_path: str | None = None,
     strength: float | None = None,
     guidance_scale: float | None = None,
     num_inference_steps: int | None = None,
@@ -213,9 +228,11 @@ def run_diffusion(
     device = settings.detect_device()
     pipe = _load_pipeline(settings)
     source_hint = _derive_source_hint(source_name)
+    reference_hint = _derive_reference_hint(reference_path)
     tuning = style.compute_diffusion_tuning(
         content_image.size,
         source_hint=source_hint,
+        reference_hint=reference_hint,
     )
 
     _strength = strength if strength is not None else tuning.strength
@@ -237,13 +254,14 @@ def run_diffusion(
         )
 
     log.info(
-        "Diffusion params — strength=%.2f  guidance=%.1f  steps=%d  size=%dx%d  hint=%s",
+        "Diffusion params — strength=%.2f  guidance=%.1f  steps=%d  size=%dx%d  hint=%s  ref=%s",
         _strength,
         _guidance,
         _steps,
         img.width,
         img.height,
         source_hint or "none",
+        reference_hint or "none",
     )
 
     result = pipe(

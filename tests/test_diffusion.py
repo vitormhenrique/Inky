@@ -5,7 +5,11 @@ from __future__ import annotations
 from PIL import Image
 
 from src.config import Settings
-from src.pipeline.diffusion import _derive_source_hint, _prepare_diffusion_input
+from src.pipeline.diffusion import (
+    _derive_reference_hint,
+    _derive_source_hint,
+    _prepare_diffusion_input,
+)
 
 
 def test_prepare_diffusion_input_resizes_cpu_image_to_safe_multiple():
@@ -45,3 +49,10 @@ def test_prepare_diffusion_input_uses_smaller_pi_limit():
 def test_derive_source_hint_uses_meaningful_names():
     assert _derive_source_hint("Mona_Lisa") == "mona lisa"
     assert _derive_source_hint("IMG_1234") is None
+
+
+def test_derive_reference_hint_uses_reference_filename():
+    assert (
+        _derive_reference_hint("post_impressionism/vangogh_starry_night.jpg")
+        == "vangogh starry night"
+    )

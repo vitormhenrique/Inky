@@ -67,6 +67,18 @@ class TestStyleRegistry:
         assert portrait_content > default_content
         assert portrait_style < default_style
 
+    def test_compute_nst_weights_can_boost_starry_night_reference(self):
+        style = get_style("post_impressionism")
+
+        baseline_content, baseline_style = style.compute_nst_weights((687, 1023))
+        starry_content, starry_style = style.compute_nst_weights(
+            (687, 1023),
+            reference_hint="vangogh starry night",
+        )
+
+        assert starry_content > baseline_content
+        assert starry_style > baseline_style
+
     def test_compute_diffusion_tuning_preserves_human_portraits(self):
         style = get_style("cubism")
 
@@ -81,3 +93,21 @@ class TestStyleRegistry:
         assert "mona lisa" in tuning.prompt
         assert "recognizable" in tuning.prompt
         assert len(tuning.prompt.split()) < 70
+
+    def test_compute_diffusion_tuning_uses_starry_night_reference(self):
+        style = get_style("post_impressionism")
+
+        baseline = style.compute_diffusion_tuning((687, 1023), source_hint="mona lisa")
+        starry = style.compute_diffusion_tuning(
+            (687, 1023),
+            source_hint="mona lisa",
+            reference_hint="vangogh starry night",
+        )
+
+        assert "starry night" in starry.prompt
+        assert "preserve face" in starry.prompt
+        assert "split face" in starry.negative_prompt
+        assert starry.strength <= 0.22
+        assert starry.strength < baseline.strength
+        assert starry.num_inference_steps > baseline.num_inference_steps
+        assert len(starry.prompt.split()) < len(baseline.prompt.split())

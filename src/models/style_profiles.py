@@ -45,6 +45,7 @@ class StyleProfile(BaseModel):
     def compute_nst_weights(
         self,
         image_size: tuple[int, int] | None = None,
+        reference_hint: str | None = None,
     ) -> tuple[float, float]:
         """Derive content/style weights from style_intensity.
 
@@ -89,6 +90,12 @@ class StyleProfile(BaseModel):
             content_weight *= 1.05
             style_weight *= 0.90
 
+        if reference_hint:
+            reference_hint = reference_hint.lower()
+            if self.name == "post_impressionism" and "starry night" in reference_hint:
+                content_weight *= 1.02
+                style_weight *= 1.28
+
         return content_weight, style_weight
 
     # Pre / post guidance (human-readable notes, used in docs / logs)
@@ -128,6 +135,7 @@ class StyleProfile(BaseModel):
         image_size: tuple[int, int],
         *,
         source_hint: str | None = None,
+        reference_hint: str | None = None,
     ) -> DiffusionTuning:
         """Build image-aware diffusion prompt and parameter tuning."""
         portrait_like = self._is_portrait_like(image_size)
@@ -150,10 +158,10 @@ class StyleProfile(BaseModel):
 
         if human_portrait:
             prompt_parts.append(
-                "recognizable seated portrait, preserve face, hair shape, shoulders, and hands"
+                "recognizable seated portrait, preserve face, calm expression, hair shape, shoulders, and hands"
             )
             negative_parts.append(
-                "unrecognizable face, missing face, deformed face, extra fingers, missing hands, cropped head"
+                "unrecognizable face, missing face, deformed face, asymmetrical eyes, split face, mask-like face, extra fingers, missing hands, cropped head"
             )
             strength -= 0.12 + 0.10 * self.diffusion_content_preservation
             guidance += 0.9 + 0.7 * self.diffusion_content_preservation
@@ -190,12 +198,49 @@ class StyleProfile(BaseModel):
             guidance += 0.4
             steps += 4
 
+        if reference_hint:
+            ref = reference_hint.lower()
+            if self.name == "post_impressionism" and "starry night" in ref:
+                if human_portrait:
+                    prompt_parts = [
+                        (
+                            "post-impressionist oil portrait in van gogh starry night "
+                            "colors and swirling impasto"
+                        ),
+                        "same composition and pose",
+                        "preserve face, hands, and hair silhouette",
+                    ]
+                    if source_hint:
+                        prompt_parts.append(f"{source_hint} portrait")
+                    negative_parts = [
+                        self.negative_prompt,
+                        (
+                            "different composition, abstract subject, distorted face, "
+                            "split face, surreal face, warped mouth, deformed eyes, "
+                            "extra fingers, missing hands"
+                        ),
+                        "flat background, plain sky, weak brushwork, washed-out color",
+                    ]
+                    strength = min(strength - 0.20, 0.22)
+                    guidance = min(max(self.recommended_guidance_scale - 0.5, 6.8), 7.4)
+                    steps = max(steps + 10, 48)
+                else:
+                    prompt_parts.append(
+                        "van gogh starry night, swirling blue sky, luminous stars"
+                    )
+                    negative_parts.append(
+                        "flat background, plain sky, weak brushwork, washed-out color"
+                    )
+                    strength -= 0.06
+                    guidance += 0.5
+                    steps += 8
+
         if self.diffusion_prompt_suffix:
             prompt_parts.append(self.diffusion_prompt_suffix)
         if self.diffusion_negative_prompt_extra:
             negative_parts.append(self.diffusion_negative_prompt_extra)
 
-        strength = round(min(max(strength, 0.35), 0.82), 2)
+        strength = round(min(max(strength, 0.18), 0.82), 2)
         guidance = round(min(max(guidance, 6.0), 12.0), 1)
         steps = min(max(steps, 24), 60)
 

@@ -96,6 +96,7 @@ def run_pipeline(
                 style,
                 settings,
                 source_name=source_path.stem,
+                reference_path=reference_path,
             )
         elif settings.fallback_to_nst:
             log.warning("Diffusion unavailable (%s) — falling back to NST", reason)
@@ -206,7 +207,11 @@ def _run_nst_with_style(
     if style_intensity is not None:
         cw, sw = 1.0, 10 ** (style_intensity / 2 + 1)
     else:
-        cw, sw = style.compute_nst_weights(content_image.size)
+        reference_hint = Path(ref_path).stem.replace("_", " ").replace("-", " ")
+        cw, sw = style.compute_nst_weights(
+            content_image.size,
+            reference_hint=reference_hint,
+        )
 
     return run_nst(
         content_image,
