@@ -138,5 +138,20 @@ def history() -> None:
         )
 
 
+@cli.command(name="download-references")
+@click.option("--style", type=str, default=None, help="Download only this style.")
+@click.option("--dry-run", is_flag=True, help="List paintings without downloading.")
+def download_references(style: str | None, dry_run: bool) -> None:
+    """Download public-domain reference paintings from Wikimedia Commons."""
+    import subprocess
+
+    cmd = ["python", "scripts/download_references.py"]
+    if style:
+        cmd += ["--style", style]
+    if dry_run:
+        cmd += ["--dry-run"]
+    subprocess.run(cmd, check=True)
+
+
 if __name__ == "__main__":
     cli()

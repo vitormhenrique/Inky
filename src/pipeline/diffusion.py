@@ -40,7 +40,7 @@ def should_use_diffusion(settings: Settings) -> tuple[bool, str]:
 
     Returns ``(usable, reason)``.
     """
-    if "diffusion" not in settings.allowed_algorithms:
+    if "diffusion" not in settings.allowed_algorithms_list:
         return False, "diffusion not in allowed_algorithms"
 
     if not is_diffusion_available():

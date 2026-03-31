@@ -40,3 +40,4 @@ data/logs/
 *.json
 !pyproject.toml
 service_account*.json
+data/raw/*

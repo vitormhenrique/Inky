@@ -23,11 +23,11 @@ class TestSettings:
 
     def test_csv_parsing(self):
         s = Settings(allowed_algorithms="nst,diffusion")
-        assert s.allowed_algorithms == ["nst", "diffusion"]
+        assert s.allowed_algorithms_list == ["nst", "diffusion"]
 
-    def test_csv_parsing_list(self):
-        s = Settings(allowed_algorithms=["nst"])
-        assert s.allowed_algorithms == ["nst"]
+    def test_single_algorithm(self):
+        s = Settings(allowed_algorithms="nst")
+        assert s.allowed_algorithms_list == ["nst"]
 
     def test_resolve_relative_path(self):
         s = Settings()

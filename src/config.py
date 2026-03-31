@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 # Load .env from project root (two levels up from this file)
@@ -32,7 +31,7 @@ class Settings(BaseSettings):
 
     # ── Algorithm ────────────────────────────────────────────
     default_algorithm: Literal["nst", "diffusion"] = "nst"
-    allowed_algorithms: list[str] = Field(default=["nst", "diffusion"])
+    allowed_algorithms: str = "nst,diffusion"
 
     # ── Style ────────────────────────────────────────────────
     default_style: str = "renaissance_portrait"
@@ -76,15 +75,12 @@ class Settings(BaseSettings):
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
-    # ── Validators ───────────────────────────────────────────
-    @field_validator("allowed_algorithms", mode="before")
-    @classmethod
-    def parse_csv(cls, v: str | list[str]) -> list[str]:
-        if isinstance(v, str):
-            return [s.strip() for s in v.split(",")]
-        return v
-
     # ── Derived helpers ──────────────────────────────────────
+    @property
+    def allowed_algorithms_list(self) -> list[str]:
+        """Parse comma-separated allowed_algorithms string into a list."""
+        return [s.strip() for s in self.allowed_algorithms.split(",")]
+
     @property
     def project_root(self) -> Path:
         return _PROJECT_ROOT

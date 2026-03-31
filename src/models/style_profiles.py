@@ -232,6 +232,63 @@ _register(
     )
 )
 
+_register(
+    StyleProfile(
+        name="cubism",
+        display_name="Cubism",
+        prompt=(
+            "a Cubist painting, fractured geometric planes, angular forms, "
+            "multiple viewpoints simultaneously, bold outlines, "
+            "Juan Gris and Fernand Léger style, analytical cubism"
+        ),
+        nst_reference_subdir="cubism",
+        preprocessing_notes="Strong geometric shapes in source photos transfer best. Portraits and still lifes work well.",
+        postprocessing_notes="Boost contrast slightly; the geometric fragmentation should be clearly defined.",
+        subject_affinity=SubjectAffinity.BOTH,
+        recommended_strength=0.75,
+        recommended_guidance_scale=8.0,
+        recommended_steps=35,
+    )
+)
+
+_register(
+    StyleProfile(
+        name="fauvism_bold_color",
+        display_name="Fauvism & Bold Color",
+        prompt=(
+            "a Fauvist painting, intensely vivid saturated colors, wild expressive "
+            "brushwork, bold flat color areas, Henri Matisse and André Derain style, "
+            "vibrant complementary colors, pure pigment"
+        ),
+        nst_reference_subdir="fauvism_bold_color",
+        preprocessing_notes="Colorful source photos with strong light work best. Outdoor scenes ideal.",
+        postprocessing_notes="Boost saturation and vibrance — Fauvist style thrives on exaggerated color.",
+        subject_affinity=SubjectAffinity.BOTH,
+        recommended_strength=0.70,
+        recommended_guidance_scale=7.5,
+        nst_style_weight=1e7,
+    )
+)
+
+_register(
+    StyleProfile(
+        name="expressionism_bold_color",
+        display_name="Expressionism Bold Color",
+        prompt=(
+            "an Expressionist painting, emotionally intense distorted forms, "
+            "bold vivid colors, dramatic contrasts, Gustav Klimt and Edvard Munch style, "
+            "thick impasto, raw emotional power"
+        ),
+        nst_reference_subdir="expressionism_bold_color",
+        preprocessing_notes="Portraits with strong emotion or dramatic lighting transfer powerfully.",
+        postprocessing_notes="Deepen contrasts; keep saturation high for emotional intensity.",
+        subject_affinity=SubjectAffinity.BOTH,
+        recommended_strength=0.70,
+        recommended_guidance_scale=8.0,
+        nst_style_weight=1e7,
+    )
+)
+
 
 def get_style(name: str) -> StyleProfile:
     """Look up a style by name. Raises ``KeyError`` if not found."""
