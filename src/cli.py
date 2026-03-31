@@ -51,6 +51,14 @@ def cli() -> None:
     default=None,
     help="NST style intensity override (1.0=subtle, 10.0=maximum). Overrides per-style default.",
 )
+@click.option(
+    "--reference",
+    "-r",
+    "reference_path",
+    type=click.Path(),
+    default=None,
+    help="Explicit style reference image path (overrides random selection).",
+)
 def run(
     input_path: str | None,
     style_name: str | None,
@@ -61,6 +69,7 @@ def run(
     skip_upload: bool,
     archive: bool,
     style_intensity: float | None,
+    reference_path: str | None,
 ) -> None:
     """Run the full stylisation pipeline once."""
     from src.main import run_pipeline
@@ -77,6 +86,7 @@ def run(
         skip_upload=skip_upload,
         skip_archive=not archive,
         style_intensity=style_intensity,
+        reference_path=reference_path,
     )
     click.echo(f"Done! Display image: {display_path}")
 

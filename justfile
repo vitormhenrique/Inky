@@ -14,14 +14,46 @@ default:
 
 # ── Stylisation ──────────────────────────────────────────────
 
-# stylize a single image with a given style (method: nst or diffusion)
+# stylize a single image with a given style
+# style can be a name (e.g. cubism) or style/reference.jpg (e.g. cubism/picasso_girl.jpg)
 [group('stylize')]
 stylize image style method='nst' intensity='':
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    style_arg="{{style}}"
+    ref_flag=""
+    # If style contains a /, split into style name + reference image
+    if [[ "$style_arg" == */* ]]; then
+        style_name="${style_arg%%/*}"
+        ref_image="${style_arg}"
+        ref_flag="--reference $ref_image"
+    else
+        style_name="$style_arg"
+    fi
+
+    # Resolve input: if not an existing file, search data/raw
+    input_arg="{{image}}"
+    if [[ ! -f "$input_arg" ]]; then
+        match=$(find "{{raw_dir}}" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.bmp" -o -iname "*.tiff" -o -iname "*.webp" \) | grep -i "$input_arg" | head -1)
+        if [[ -z "$match" ]]; then
+            echo "Error: no image matching '$input_arg' found in {{raw_dir}}"
+            exit 1
+        fi
+        input_arg="$match"
+        echo "Found: $input_arg"
+    fi
+
+    intensity_flag=""
+    if [[ -n "{{intensity}}" ]]; then
+        intensity_flag="--style-intensity {{intensity}}"
+    fi
+
     uv run python -m src.cli run \
-        --input "{{image}}" \
-        --style "{{style}}" \
+        --input "$input_arg" \
+        --style "$style_name" \
         --algorithm "{{method}}" \
-        {{ if intensity != '' { '--style-intensity ' + intensity } else { '' } }} \
+        $ref_flag $intensity_flag \
         --skip-sync --skip-display --skip-upload
 
 # stylize a single image, auto-finding it by partial name in data/raw

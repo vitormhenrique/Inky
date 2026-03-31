@@ -39,6 +39,7 @@ def run_pipeline(
     skip_upload: bool = False,
     skip_archive: bool = True,
     style_intensity: float | None = None,
+    reference_path: str | None = None,
 ) -> Path:
     """Execute the full stylisation pipeline and return the display image path.
 
@@ -94,7 +95,9 @@ def run_pipeline(
         elif settings.fallback_to_nst:
             log.warning("Diffusion unavailable (%s) — falling back to NST", reason)
             algo = "nst"
-            stylised = _run_nst_with_style(content_image, style, settings, style_intensity)
+            stylised = _run_nst_with_style(
+                content_image, style, settings, style_intensity
+            )
         else:
             raise RuntimeError(
                 f"Diffusion unavailable ({reason}) and fallback disabled"
@@ -160,17 +163,29 @@ def _run_nst_with_style(
     style: StyleProfile,
     settings: Settings,
     style_intensity: float | None = None,
+    reference_path: str | None = None,
 ) -> Image.Image:
     """Run NST using the style's reference image."""
     from src.pipeline.nst import find_random_style_reference
 
     styles_dir = settings.resolve_path(settings.local_styles_dir)
-    ref_path = find_random_style_reference(styles_dir, style.nst_reference_subdir)
+
+    if reference_path:
+        ref = Path(reference_path)
+        # If not absolute, resolve relative to the style's reference directory
+        if not ref.is_absolute():
+            ref = styles_dir / ref
+        if not ref.is_file():
+            raise FileNotFoundError(f"Reference image not found: {ref}")
+        ref_path = ref
+    else:
+        ref_path = find_random_style_reference(styles_dir, style.nst_reference_subdir)
+
     log.info("NST reference: %s", ref_path)
     style_image = load_image(ref_path)
 
     if style_intensity is not None:
-        cw, sw = 1.0, 10 ** style_intensity
+        cw, sw = 1.0, 10 ** (style_intensity / 2 + 1)
     else:
         cw, sw = style.compute_nst_weights()
 

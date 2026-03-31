@@ -107,6 +107,12 @@ def _build_model(
             layer = nn.ReLU(inplace=False)
         elif isinstance(layer, nn.MaxPool2d):
             name = f"pool_{i}"
+            # AvgPool produces smoother results than MaxPool (Gatys et al.)
+            layer = nn.AvgPool2d(
+                kernel_size=layer.kernel_size,
+                stride=layer.stride,
+                padding=layer.padding,
+            )
         elif isinstance(layer, nn.BatchNorm2d):
             name = f"bn_{i}"
         else:
@@ -186,7 +192,11 @@ def run_nst(
 
             content_score = sum(cl.loss for cl in content_losses) * cw
             style_score = sum(sl.loss for sl in style_losses) * sw
-            loss = content_score + style_score
+            # Total variation regularisation — reduces noise/checkerboard artifacts
+            tv = torch.sum(
+                torch.abs(input_img[:, :, :, :-1] - input_img[:, :, :, 1:])
+            ) + torch.sum(torch.abs(input_img[:, :, :-1, :] - input_img[:, :, 1:, :]))
+            loss = content_score + style_score + tv * 1e-6
             loss.backward()
 
             run_step[0] += 1

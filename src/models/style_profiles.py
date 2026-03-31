@@ -36,19 +36,21 @@ class StyleProfile(BaseModel):
     def compute_nst_weights(self) -> tuple[float, float]:
         """Derive content/style weights from style_intensity.
 
-        Returns ``(content_weight, style_weight)`` where:
-        - content_weight is always ``1.0``
-        - style_weight  is ``10 ** nst_style_intensity``
+        Returns ``(content_weight, style_weight)``.
 
-        Intensity guide:
-          4  → subtle (naturalist)        ratio 10 000 : 1
-          5  → gentle (renaissance)       ratio 100 000 : 1
-          6  → moderate (default)         ratio 1 000 000 : 1
-          7  → strong (post-impr)         ratio 10 000 000 : 1
-          8  → heavy (expressionism)      ratio 100 000 000 : 1
-          9+ → extreme                    ratio 1 000 000 000+ : 1
+        Calibrated against measured VGG-19 loss magnitudes where
+        content MSE ≈ 30 and sum of gram MSEs ≈ 0.01. Equal
+        balance point is around style_weight ≈ 3 000.
+
+        Intensity guide (with content_weight = 1):
+          1  → barely visible              sw ≈ 300
+          3  → subtle (naturalist)         sw ≈ 3 000
+          5  → moderate (default)          sw ≈ 30 000
+          7  → strong (expressionism)      sw ≈ 300 000
+          9  → very heavy                  sw ≈ 3 000 000
+          10 → extreme                     sw ≈ 10 000 000
         """
-        return 1.0, 10 ** self.nst_style_intensity
+        return 1.0, 10 ** (self.nst_style_intensity / 2 + 1)
 
     # Pre / post guidance (human-readable notes, used in docs / logs)
     preprocessing_notes: str = ""

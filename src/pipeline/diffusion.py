@@ -72,7 +72,8 @@ def _load_pipeline(settings: Settings) -> Any:
     from diffusers import StableDiffusionImg2ImgPipeline
 
     device = settings.detect_device()
-    dtype = torch.float16 if device in ("cuda", "mps") else torch.float32
+    # float16 on MPS produces corrupted images — only use it on CUDA
+    dtype = torch.float16 if device == "cuda" else torch.float32
 
     log.info(
         "Loading diffusion model %s on %s (dtype=%s)",

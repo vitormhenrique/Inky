@@ -109,9 +109,12 @@ class Settings(BaseSettings):
 
     @property
     def is_raspberry_pi(self) -> bool:
-        return platform.machine().startswith(
-            "aarch64"
-        ) or platform.machine().startswith("arm")
+        if platform.system() != "Linux":
+            return False
+        try:
+            return "raspberry pi" in Path("/proc/device-tree/model").read_text().lower()
+        except OSError:
+            return False
 
     @property
     def display_resolution(self) -> tuple[int, int]:
