@@ -3,10 +3,10 @@
 
 set dotenv-load
 
-# directories
-raw_dir     := "data/raw"
-display_dir := "data/display"
-styles_dir  := "data/styles"
+# directories (absolute paths for shebang recipe compatibility)
+raw_dir     := justfile_directory() / "data/raw"
+display_dir := justfile_directory() / "data/display"
+styles_dir  := justfile_directory() / "data/styles"
 
 # list available recipes
 default:
@@ -14,17 +14,19 @@ default:
 
 # ── Stylisation ──────────────────────────────────────────────
 
-# stylize a single image with a given style
+# stylize a single image with a given style (method: nst or diffusion)
 [group('stylize')]
-stylize image style:
+stylize image style method='nst' intensity='':
     uv run python -m src.cli run \
         --input "{{image}}" \
         --style "{{style}}" \
+        --algorithm "{{method}}" \
+        {{ if intensity != '' { '--style-intensity ' + intensity } else { '' } }} \
         --skip-sync --skip-display --skip-upload
 
 # stylize a single image, auto-finding it by partial name in data/raw
 [group('stylize')]
-stylize-by-name name style:
+stylize-by-name name style method='nst' intensity='':
     #!/usr/bin/env bash
     set -euo pipefail
     match=$(find "{{raw_dir}}" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.bmp" -o -iname "*.tiff" -o -iname "*.webp" \) | grep -i "{{name}}" | head -1)
@@ -33,14 +35,20 @@ stylize-by-name name style:
         exit 1
     fi
     echo "Found: $match"
+    intensity_flag=""
+    if [[ -n "{{intensity}}" ]]; then
+        intensity_flag="--style-intensity {{intensity}}"
+    fi
     uv run python -m src.cli run \
         --input "$match" \
         --style "{{style}}" \
+        --algorithm "{{method}}" \
+        $intensity_flag \
         --skip-sync --skip-display --skip-upload
 
 # stylize ALL images in data/raw with a given style
 [group('stylize')]
-stylize-all style:
+stylize-all style method='nst' intensity='':
     #!/usr/bin/env bash
     set -euo pipefail
     shopt -s nullglob nocaseglob
@@ -52,15 +60,54 @@ stylize-all style:
         echo "No images found in {{raw_dir}}"
         exit 1
     fi
-    echo "Processing ${#files[@]} image(s) with style '{{style}}'..."
+    intensity_flag=""
+    if [[ -n "{{intensity}}" ]]; then
+        intensity_flag="--style-intensity {{intensity}}"
+    fi
+    echo "Processing ${#files[@]} image(s) with style '{{style}}' ({{method}})..."
     for f in "${files[@]}"; do
         echo "──── $(basename "$f") ────"
         uv run python -m src.cli run \
             --input "$f" \
             --style "{{style}}" \
+            --algorithm "{{method}}" \
+            $intensity_flag \
             --skip-sync --skip-display --skip-upload
     done
     echo "Done! All outputs saved to {{display_dir}}"
+
+# batch-generate: match images by name, apply a style N times per match
+[group('stylize')]
+generate name style count method='nst' intensity='':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mapfile -t matches < <(find "{{raw_dir}}" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.bmp" -o -iname "*.tiff" -o -iname "*.webp" \) | grep -i "{{name}}")
+    if [[ ${#matches[@]} -eq 0 ]]; then
+        echo "Error: no images matching '{{name}}' in {{raw_dir}}"
+        exit 1
+    fi
+    echo "Found ${#matches[@]} image(s) matching '{{name}}'"
+    echo "Generating {{count}} variation(s) per image with style '{{style}}' ({{method}})..."
+    intensity_flag=""
+    if [[ -n "{{intensity}}" ]]; then
+        intensity_flag="--style-intensity {{intensity}}"
+    fi
+    for f in "${matches[@]}"; do
+        if [[ ! -f "$f" ]]; then
+            echo "Skipping missing file: $f"
+            continue
+        fi
+        for i in $(seq 1 {{count}}); do
+            echo "──── $(basename "$f") [${i}/{{count}}] ────"
+            uv run python -m src.cli run \
+                --input "$f" \
+                --style "{{style}}" \
+                --algorithm "{{method}}" \
+                $intensity_flag \
+                --skip-sync --skip-display --skip-upload
+        done
+    done
+    echo "Done! Generated $((${#matches[@]} * {{count}})) image(s) in {{display_dir}}"
 
 # stylize ALL images in data/raw with a random style each
 [group('stylize')]
@@ -84,6 +131,7 @@ stylize-all-random:
         uv run python -m src.cli run \
             --input "$f" \
             --style "$s" \
+            --algorithm nst \
             --skip-sync --skip-display --skip-upload
     done
     echo "Done! All outputs saved to {{display_dir}}"

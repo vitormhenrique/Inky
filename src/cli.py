@@ -42,6 +42,15 @@ def cli() -> None:
 @click.option("--skip-sync", is_flag=True, help="Skip Google Drive sync.")
 @click.option("--skip-display", is_flag=True, help="Skip Inky display update.")
 @click.option("--skip-upload", is_flag=True, help="Skip uploading results to Drive.")
+@click.option(
+    "--archive", is_flag=True, help="Archive (move) the source image after processing."
+)
+@click.option(
+    "--style-intensity",
+    type=float,
+    default=None,
+    help="NST style intensity override (1.0=subtle, 10.0=maximum). Overrides per-style default.",
+)
 def run(
     input_path: str | None,
     style_name: str | None,
@@ -50,6 +59,8 @@ def run(
     skip_sync: bool,
     skip_display: bool,
     skip_upload: bool,
+    archive: bool,
+    style_intensity: float | None,
 ) -> None:
     """Run the full stylisation pipeline once."""
     from src.main import run_pipeline
@@ -64,6 +75,8 @@ def run(
         skip_sync=skip_sync,
         skip_display=skip_display,
         skip_upload=skip_upload,
+        skip_archive=not archive,
+        style_intensity=style_intensity,
     )
     click.echo(f"Done! Display image: {display_path}")
 

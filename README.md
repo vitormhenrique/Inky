@@ -187,6 +187,64 @@ uv run python -m src.cli history
 uv run python -m src.cli schedule
 ```
 
+### Justfile (recommended)
+
+Install [just](https://github.com/casey/just) (`brew install just`) and use the shorthand recipes:
+
+```bash
+just                              # list all recipes
+just styles                       # list available styles
+just raw                          # list images in data/raw
+
+# single image
+just stylize photo.jpg kirchner_marcella.jpg
+just stylize photo.jpg cubism diffusion     # use diffusion method
+
+# find image by partial name (first match only, single output)
+just stylize-by-name sunset cubism
+just stylize-by-name sunset cubism diffusion
+
+# all images in data/raw
+just stylize-all impressionism
+just stylize-all impressionism diffusion    # use diffusion method
+just stylize-all-random                     # random style per image
+
+# batch generate: match ALL images by name, N variations each
+just generate sunset cubism 5               # 5 outputs per matched image
+just generate sunset cubism 3 diffusion     # use diffusion method
+
+# reference images
+just refs cubism                  # list reference paintings for a style
+
+# setup
+just install                      # uv sync
+just download-refs                # download Wikimedia reference paintings
+```
+
+### Stylisation Methods
+
+| Method | Flag | Description |
+|---|---|---|
+| `nst` | `-a nst` or `method='nst'` (default) | **Neural Style Transfer** — VGG-19 feature extractor with L-BFGS optimiser. Transfers texture/colour from a reference painting. Runs on CPU, MPS (Apple Silicon), or CUDA. ~300 steps, fully deterministic per run. |
+| `diffusion` | `-a diffusion` or `method='diffusion'` | **Stable Diffusion img2img** — Uses HuggingFace `diffusers` with style-specific prompts. More creative/varied output, but requires more VRAM. Falls back to NST when unavailable. |
+
+All `just` recipes default to `nst`. Pass the method as the last argument to switch:
+```bash
+just stylize image.jpg cubism diffusion
+just generate cat impressionism 4 diffusion
+```
+
+### Stylize vs Generate
+
+| Recipe | Purpose | Signature |
+|---|---|---|
+| `stylize` | Process **one explicit file** with a style | `just stylize <path> <style> [method]` |
+| `stylize-by-name` | Find the **first match** by name in `data/raw`, produce **one** output | `just stylize-by-name <name> <style> [method]` |
+| `stylize-all` | Process **every image** in `data/raw` with a style (one output each) | `just stylize-all <style> [method]` |
+| `generate` | Find **all matches** by name in `data/raw`, produce **N outputs per match** | `just generate <name> <style> <count> [method]` |
+
+Use `stylize` / `stylize-by-name` for quick single runs. Use `generate` when you want multiple variations of the same source image (e.g. `just generate lais cubism 5` creates 5 cubist renderings for every `lais*` image in `data/raw`).
+
 ---
 
 ## 7. Style System

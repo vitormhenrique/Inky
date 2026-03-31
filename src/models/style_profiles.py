@@ -31,8 +31,24 @@ class StyleProfile(BaseModel):
     nst_reference_subdir: (
         str  # e.g. "renaissance_portrait" — maps to data/styles/<subdir>/
     )
-    nst_content_weight: float | None = None  # override global if set
-    nst_style_weight: float | None = None
+    nst_style_intensity: float = 6.0  # 1 (barely visible) → 10 (maximum style)
+
+    def compute_nst_weights(self) -> tuple[float, float]:
+        """Derive content/style weights from style_intensity.
+
+        Returns ``(content_weight, style_weight)`` where:
+        - content_weight is always ``1.0``
+        - style_weight  is ``10 ** nst_style_intensity``
+
+        Intensity guide:
+          4  → subtle (naturalist)        ratio 10 000 : 1
+          5  → gentle (renaissance)       ratio 100 000 : 1
+          6  → moderate (default)         ratio 1 000 000 : 1
+          7  → strong (post-impr)         ratio 10 000 000 : 1
+          8  → heavy (expressionism)      ratio 100 000 000 : 1
+          9+ → extreme                    ratio 1 000 000 000+ : 1
+        """
+        return 1.0, 10 ** self.nst_style_intensity
 
     # Pre / post guidance (human-readable notes, used in docs / logs)
     preprocessing_notes: str = ""
@@ -66,6 +82,7 @@ _register(
             "masterful brushwork, Leonardo da Vinci style"
         ),
         nst_reference_subdir="renaissance_portrait",
+        nst_style_intensity=5.0,
         preprocessing_notes="Crop tightly to head/shoulders for best effect.",
         postprocessing_notes="Slight warm color grading enhances the period feel.",
         subject_affinity=SubjectAffinity.HUMAN,
@@ -84,6 +101,7 @@ _register(
             "17th century masterwork"
         ),
         nst_reference_subdir="baroque_oil_painting",
+        nst_style_intensity=6.0,
         preprocessing_notes="Works best with dramatic side lighting in source photo.",
         postprocessing_notes="Deepen blacks slightly in post for the Caravaggio effect.",
         subject_affinity=SubjectAffinity.BOTH,
@@ -101,6 +119,7 @@ _register(
             "18th century French court elegance"
         ),
         nst_reference_subdir="rococo_portrait",
+        nst_style_intensity=5.0,
         preprocessing_notes="Lighter backgrounds translate better into Rococo style.",
         postprocessing_notes="Boost saturation of pinks and blues slightly.",
         subject_affinity=SubjectAffinity.HUMAN,
@@ -119,6 +138,7 @@ _register(
             "17th century Dutch masters technique"
         ),
         nst_reference_subdir="dutch_golden_age",
+        nst_style_intensity=5.5,
         preprocessing_notes="Dark or neutral backgrounds strongly recommended.",
         postprocessing_notes="Add subtle vignette for period authenticity.",
         subject_affinity=SubjectAffinity.BOTH,
@@ -136,6 +156,7 @@ _register(
             "Delacroix or Turner style, sublime landscape quality"
         ),
         nst_reference_subdir="romanticism",
+        nst_style_intensity=6.0,
         preprocessing_notes="Outdoor scenes or dramatic poses work well.",
         postprocessing_notes="Enhance contrast for dramatic atmosphere.",
         subject_affinity=SubjectAffinity.BOTH,
@@ -154,6 +175,7 @@ _register(
             "dappled sunlight, color harmony"
         ),
         nst_reference_subdir="impressionism",
+        nst_style_intensity=6.5,
         preprocessing_notes="Outdoor photos with natural light are ideal source material.",
         postprocessing_notes="Slight softening filter can enhance the impressionistic feel.",
         subject_affinity=SubjectAffinity.BOTH,
@@ -172,6 +194,7 @@ _register(
             "vibrant palette, emotional intensity, thick impasto"
         ),
         nst_reference_subdir="post_impressionism",
+        nst_style_intensity=7.0,
         preprocessing_notes="Strong shapes and outlines in source help preserve structure.",
         postprocessing_notes="Boost vibrance; consider slight texture overlay.",
         subject_affinity=SubjectAffinity.BOTH,
@@ -190,6 +213,7 @@ _register(
             "Edwin Landseer style, noble animal portrait, museum quality"
         ),
         nst_reference_subdir="victorian_animal_portrait",
+        nst_style_intensity=5.5,
         preprocessing_notes="Crop to highlight the animal's head/upper body. Dark BG preferred.",
         postprocessing_notes="Warm mid-tones; deepen background.",
         subject_affinity=SubjectAffinity.ANIMAL,
@@ -207,6 +231,7 @@ _register(
             "George Stubbs style, oil on canvas, museum masterpiece"
         ),
         nst_reference_subdir="classical_equestrian",
+        nst_style_intensity=5.5,
         preprocessing_notes="Full-body pose with visible limbs works best.",
         postprocessing_notes="Add subtle landscape glow in background.",
         subject_affinity=SubjectAffinity.ANIMAL,
@@ -224,6 +249,7 @@ _register(
             "refined technique, warm skin tones, elegant composition"
         ),
         nst_reference_subdir="naturalist_oil_portrait",
+        nst_style_intensity=4.0,
         preprocessing_notes="High-quality evenly lit source photos yield the best results.",
         postprocessing_notes="Minimal post needed — style is close to photorealism.",
         subject_affinity=SubjectAffinity.BOTH,
@@ -242,6 +268,7 @@ _register(
             "Juan Gris and Fernand Léger style, analytical cubism"
         ),
         nst_reference_subdir="cubism",
+        nst_style_intensity=7.5,
         preprocessing_notes="Strong geometric shapes in source photos transfer best. Portraits and still lifes work well.",
         postprocessing_notes="Boost contrast slightly; the geometric fragmentation should be clearly defined.",
         subject_affinity=SubjectAffinity.BOTH,
@@ -264,9 +291,9 @@ _register(
         preprocessing_notes="Colorful source photos with strong light work best. Outdoor scenes ideal.",
         postprocessing_notes="Boost saturation and vibrance — Fauvist style thrives on exaggerated color.",
         subject_affinity=SubjectAffinity.BOTH,
+        nst_style_intensity=8.0,
         recommended_strength=0.70,
         recommended_guidance_scale=7.5,
-        nst_style_weight=1e7,
     )
 )
 
@@ -280,12 +307,12 @@ _register(
             "thick impasto, raw emotional power"
         ),
         nst_reference_subdir="expressionism_bold_color",
+        nst_style_intensity=8.0,
         preprocessing_notes="Portraits with strong emotion or dramatic lighting transfer powerfully.",
         postprocessing_notes="Deepen contrasts; keep saturation high for emotional intensity.",
         subject_affinity=SubjectAffinity.BOTH,
         recommended_strength=0.70,
         recommended_guidance_scale=8.0,
-        nst_style_weight=1e7,
     )
 )
 

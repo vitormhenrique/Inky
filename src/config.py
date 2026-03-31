@@ -62,7 +62,7 @@ class Settings(BaseSettings):
 
     # ── NST ──────────────────────────────────────────────────
     nst_content_weight: float = 1e5
-    nst_style_weight: float = 1e10
+    nst_style_weight: float = 1e6
     nst_num_steps: int = 300
     nst_output_long_edge: int = 1024
 

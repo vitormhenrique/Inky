@@ -16,7 +16,7 @@ from src.pipeline.diffusion import (
     run_diffusion,
     should_use_diffusion,
 )
-from src.pipeline.nst import find_style_reference, run_nst
+from src.pipeline.nst import run_nst
 from src.pipeline.postprocess import prepare_display_image, save_outputs
 from src.pipeline.preprocess import preprocess
 from src.pipeline.selector import select_image
@@ -37,6 +37,8 @@ def run_pipeline(
     skip_sync: bool = False,
     skip_display: bool = False,
     skip_upload: bool = False,
+    skip_archive: bool = True,
+    style_intensity: float | None = None,
 ) -> Path:
     """Execute the full stylisation pipeline and return the display image path.
 
@@ -92,13 +94,13 @@ def run_pipeline(
         elif settings.fallback_to_nst:
             log.warning("Diffusion unavailable (%s) — falling back to NST", reason)
             algo = "nst"
-            stylised = _run_nst_with_style(content_image, style, settings)
+            stylised = _run_nst_with_style(content_image, style, settings, style_intensity)
         else:
             raise RuntimeError(
                 f"Diffusion unavailable ({reason}) and fallback disabled"
             )
     else:
-        stylised = _run_nst_with_style(content_image, style, settings)
+        stylised = _run_nst_with_style(content_image, style, settings, style_intensity)
 
     # 6. Post-process & save
     log.info("Step 6: Post-processing & saving…")
@@ -142,9 +144,12 @@ def run_pipeline(
     )
 
     # 10. Archive source
-    archive_dir = settings.resolve_path(settings.local_archive_dir)
-    if source_path.is_file():
-        archive_file(source_path, archive_dir)
+    if not skip_archive:
+        archive_dir = settings.resolve_path(settings.local_archive_dir)
+        if source_path.is_file():
+            archive_file(source_path, archive_dir)
+    else:
+        log.info("Step 10: Skipping archive")
 
     log.info("Pipeline complete! Display image: %s", display_path)
     return display_path
@@ -154,17 +159,25 @@ def _run_nst_with_style(
     content_image: Image.Image,
     style: StyleProfile,
     settings: Settings,
+    style_intensity: float | None = None,
 ) -> Image.Image:
     """Run NST using the style's reference image."""
+    from src.pipeline.nst import find_random_style_reference
+
     styles_dir = settings.resolve_path(settings.local_styles_dir)
-    ref_path = find_style_reference(styles_dir, style.nst_reference_subdir)
+    ref_path = find_random_style_reference(styles_dir, style.nst_reference_subdir)
     log.info("NST reference: %s", ref_path)
     style_image = load_image(ref_path)
+
+    if style_intensity is not None:
+        cw, sw = 1.0, 10 ** style_intensity
+    else:
+        cw, sw = style.compute_nst_weights()
 
     return run_nst(
         content_image,
         style_image,
         settings,
-        content_weight=style.nst_content_weight,
-        style_weight=style.nst_style_weight,
+        content_weight=cw,
+        style_weight=sw,
     )

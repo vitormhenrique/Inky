@@ -154,9 +154,9 @@ def run_nst(
     device = torch.device(settings.detect_device())
     log.info("NST device: %s", device)
 
-    cw = content_weight or settings.nst_content_weight
-    sw = style_weight or settings.nst_style_weight
-    steps = num_steps or settings.nst_num_steps
+    cw = content_weight if content_weight is not None else settings.nst_content_weight
+    sw = style_weight if style_weight is not None else settings.nst_style_weight
+    steps = num_steps if num_steps is not None else settings.nst_num_steps
 
     log.info(
         "NST params — content_weight=%.0e  style_weight=%.0e  steps=%d", cw, sw, steps
@@ -171,15 +171,16 @@ def run_nst(
 
     model, content_losses, style_losses = _build_model(cnn, content_t, style_t, device)
 
-    # Optimise the input image (start from content)
-    input_img = content_t.clone().requires_grad_(True)
+    # Optimise the input image (start from content + slight noise for variation)
+    input_img = content_t.clone()
+    input_img = input_img + torch.randn_like(input_img) * 0.01
+    input_img = input_img.requires_grad_(True)
     optimizer = optim.LBFGS([input_img])
 
     run_step = [0]
     while run_step[0] <= steps:
 
         def closure() -> float:
-            input_img.data.clamp_(0, 1)
             optimizer.zero_grad()
             model(input_img)
 
@@ -201,14 +202,13 @@ def run_nst(
 
         optimizer.step(closure)
 
-    input_img.data.clamp_(0, 1)
     result = _tensor_to_img(input_img)
     log.info("NST complete — output size %dx%d", result.width, result.height)
     return result
 
 
-def find_style_reference(styles_dir: Path, style_subdir: str) -> Path:
-    """Locate the first reference image in ``styles_dir/style_subdir/``."""
+def _collect_style_references(styles_dir: Path, style_subdir: str) -> list[Path]:
+    """Return all reference images in ``styles_dir/style_subdir/``."""
     d = styles_dir / style_subdir
     if not d.is_dir():
         raise FileNotFoundError(
@@ -217,7 +217,22 @@ def find_style_reference(styles_dir: Path, style_subdir: str) -> Path:
         )
     from src.utils.files import IMAGE_EXTENSIONS
 
+    refs: list[Path] = []
     for ext in sorted(IMAGE_EXTENSIONS):
-        for f in sorted(d.glob(f"*{ext}")):
-            return f
-    raise FileNotFoundError(f"No reference images found in {d}")
+        refs.extend(sorted(d.glob(f"*{ext}")))
+    if not refs:
+        raise FileNotFoundError(f"No reference images found in {d}")
+    return refs
+
+
+def find_style_reference(styles_dir: Path, style_subdir: str) -> Path:
+    """Locate the first reference image in ``styles_dir/style_subdir/``."""
+    return _collect_style_references(styles_dir, style_subdir)[0]
+
+
+def find_random_style_reference(styles_dir: Path, style_subdir: str) -> Path:
+    """Pick a random reference image from ``styles_dir/style_subdir/``."""
+    import random
+
+    refs = _collect_style_references(styles_dir, style_subdir)
+    return random.choice(refs)
