@@ -70,13 +70,20 @@ def add_title_bar(
     bar = Image.new("RGB", (img.width, bar_height), bg_color)
     draw = ImageDraw.Draw(bar)
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+        font = ImageFont.truetype(
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size
+        )
     except OSError:
         font = ImageFont.load_default()
     bbox = draw.textbbox((0, 0), title, font=font)
     tw = bbox[2] - bbox[0]
     th = bbox[3] - bbox[1]
-    draw.text(((bar.width - tw) // 2, (bar_height - th) // 2), title, fill=text_color, font=font)
+    draw.text(
+        ((bar.width - tw) // 2, (bar_height - th) // 2),
+        title,
+        fill=text_color,
+        font=font,
+    )
 
     combined = Image.new("RGB", (img.width, img.height + bar_height))
     combined.paste(bar, (0, 0))

@@ -54,5 +54,7 @@ def record_display(
     with open(_metadata_path(metadata_dir), "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2, ensure_ascii=False)
 
-    log.info("Recorded display entry #%d: %s → %s", len(history), source_image, style_name)
+    log.info(
+        "Recorded display entry #%d: %s → %s", len(history), source_image, style_name
+    )
     return entry

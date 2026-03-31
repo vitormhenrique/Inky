@@ -26,7 +26,9 @@ log = get_logger("nst")
 _IMAGENET_MEAN = [0.485, 0.456, 0.406]
 _IMAGENET_STD = [0.229, 0.224, 0.225]
 
-_to_tensor = T.Compose([T.ToTensor(), T.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD)])
+_to_tensor = T.Compose(
+    [T.ToTensor(), T.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD)]
+)
 
 _UNNORM_MEAN = torch.tensor(_IMAGENET_MEAN).view(3, 1, 1)
 _UNNORM_STD = torch.tensor(_IMAGENET_STD).view(3, 1, 1)
@@ -156,7 +158,9 @@ def run_nst(
     sw = style_weight or settings.nst_style_weight
     steps = num_steps or settings.nst_num_steps
 
-    log.info("NST params — content_weight=%.0e  style_weight=%.0e  steps=%d", cw, sw, steps)
+    log.info(
+        "NST params — content_weight=%.0e  style_weight=%.0e  steps=%d", cw, sw, steps
+    )
 
     content_t = _img_to_tensor(content_image, device)
     style_t = _img_to_tensor(

@@ -99,7 +99,9 @@ def _upload_file(service: Any, local_path: Path, folder_id: str) -> str:
 
     media = MediaFileUpload(str(local_path), resumable=True)
     metadata: dict[str, Any] = {"name": local_path.name, "parents": [folder_id]}
-    created = service.files().create(body=metadata, media_body=media, fields="id").execute()
+    created = (
+        service.files().create(body=metadata, media_body=media, fields="id").execute()
+    )
     return created["id"]
 
 

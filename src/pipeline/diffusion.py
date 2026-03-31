@@ -50,7 +50,10 @@ def should_use_diffusion(settings: Settings) -> tuple[bool, str]:
         # Running diffusion on Pi is possible but extremely slow.
         # Default: disabled unless user explicitly requests.
         if settings.default_algorithm != "diffusion":
-            return False, "Raspberry Pi detected — diffusion disabled by default (too slow)"
+            return (
+                False,
+                "Raspberry Pi detected — diffusion disabled by default (too slow)",
+            )
         log.warning(
             "Diffusion on Raspberry Pi will be very slow "
             "(expect 30+ minutes at reduced resolution). Proceeding as explicitly requested."
@@ -71,7 +74,12 @@ def _load_pipeline(settings: Settings) -> Any:
     device = settings.detect_device()
     dtype = torch.float16 if device in ("cuda", "mps") else torch.float32
 
-    log.info("Loading diffusion model %s on %s (dtype=%s)", settings.diffusion_model_id, device, dtype)
+    log.info(
+        "Loading diffusion model %s on %s (dtype=%s)",
+        settings.diffusion_model_id,
+        device,
+        dtype,
+    )
 
     pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
         settings.diffusion_model_id,
@@ -113,8 +121,16 @@ def run_diffusion(
     pipe = _load_pipeline(settings)
 
     _strength = strength or style.recommended_strength or settings.diffusion_strength
-    _guidance = guidance_scale or style.recommended_guidance_scale or settings.diffusion_guidance_scale
-    _steps = num_inference_steps or style.recommended_steps or settings.diffusion_num_inference_steps
+    _guidance = (
+        guidance_scale
+        or style.recommended_guidance_scale
+        or settings.diffusion_guidance_scale
+    )
+    _steps = (
+        num_inference_steps
+        or style.recommended_steps
+        or settings.diffusion_num_inference_steps
+    )
 
     # On Pi / constrained hardware, reduce resolution
     img = content_image
@@ -122,7 +138,9 @@ def run_diffusion(
         max_edge = 512
         if max(img.size) > max_edge:
             scale = max_edge / max(img.size)
-            img = img.resize((int(img.width * scale), int(img.height * scale)), Image.LANCZOS)
+            img = img.resize(
+                (int(img.width * scale), int(img.height * scale)), Image.LANCZOS
+            )
             log.info("Reduced resolution for Pi: %dx%d", img.width, img.height)
 
     log.info(

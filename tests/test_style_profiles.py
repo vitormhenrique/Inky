@@ -50,6 +50,10 @@ class TestStyleRegistry:
 
     def test_style_recommended_params(self):
         for name, style in BUILTIN_STYLES.items():
-            assert 0.0 < style.recommended_strength <= 1.0, f"{name} strength out of range"
-            assert style.recommended_guidance_scale > 0, f"{name} guidance_scale invalid"
+            assert (
+                0.0 < style.recommended_strength <= 1.0
+            ), f"{name} strength out of range"
+            assert (
+                style.recommended_guidance_scale > 0
+            ), f"{name} guidance_scale invalid"
             assert style.recommended_steps > 0, f"{name} steps invalid"

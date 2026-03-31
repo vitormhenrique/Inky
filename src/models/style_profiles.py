@@ -28,7 +28,9 @@ class StyleProfile(BaseModel):
     )
 
     # NST guidance
-    nst_reference_subdir: str  # e.g. "renaissance_portrait" — maps to data/styles/<subdir>/
+    nst_reference_subdir: (
+        str  # e.g. "renaissance_portrait" — maps to data/styles/<subdir>/
+    )
     nst_content_weight: float | None = None  # override global if set
     nst_style_weight: float | None = None
 
@@ -255,7 +257,8 @@ def suggest_style_for_subject(
     candidates = [
         s
         for s in BUILTIN_STYLES.values()
-        if s.subject_affinity.value == subject or s.subject_affinity == SubjectAffinity.BOTH
+        if s.subject_affinity.value == subject
+        or s.subject_affinity == SubjectAffinity.BOTH
     ]
     if not candidates:
         return BUILTIN_STYLES[default]

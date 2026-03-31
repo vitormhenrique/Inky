@@ -63,7 +63,9 @@ class TestSelectImage:
         with pytest.raises(FileNotFoundError):
             select_image(s, mode_override="random_raw")
 
-    def test_latest_parsed_falls_back_to_random_raw(self, settings: Settings, temp_cache: Path):
+    def test_latest_parsed_falls_back_to_random_raw(
+        self, settings: Settings, temp_cache: Path
+    ):
         """When parsed is empty, latest_parsed falls back to random_raw."""
         # Remove parsed files
         for f in (temp_cache / "parsed").iterdir():

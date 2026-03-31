@@ -38,7 +38,9 @@ class Settings(BaseSettings):
     default_style: str = "renaissance_portrait"
 
     # ── Image Selection ──────────────────────────────────────
-    selection_mode: Literal["latest_parsed", "random_raw", "random_any"] = "latest_parsed"
+    selection_mode: Literal["latest_parsed", "random_raw", "random_any"] = (
+        "latest_parsed"
+    )
 
     # ── Display ──────────────────────────────────────────────
     display_width: int = 1600
@@ -111,7 +113,9 @@ class Settings(BaseSettings):
 
     @property
     def is_raspberry_pi(self) -> bool:
-        return platform.machine().startswith("aarch64") or platform.machine().startswith("arm")
+        return platform.machine().startswith(
+            "aarch64"
+        ) or platform.machine().startswith("arm")
 
     @property
     def display_resolution(self) -> tuple[int, int]:

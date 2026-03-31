@@ -29,7 +29,9 @@ def ensure_dirs(settings: Settings) -> None:
 
     # Ensure subdirs inside cache mirror the GDrive layout
     for sub in ("raw", "parsed", "styled", "display", "archive", "logs"):
-        (settings.resolve_path(settings.local_cache_dir) / sub).mkdir(parents=True, exist_ok=True)
+        (settings.resolve_path(settings.local_cache_dir) / sub).mkdir(
+            parents=True, exist_ok=True
+        )
 
 
 def list_images(directory: Path) -> list[Path]:
@@ -37,7 +39,9 @@ def list_images(directory: Path) -> list[Path]:
     if not directory.is_dir():
         return []
     return sorted(
-        p for p in directory.iterdir() if p.suffix.lower() in IMAGE_EXTENSIONS and p.is_file()
+        p
+        for p in directory.iterdir()
+        if p.suffix.lower() in IMAGE_EXTENSIONS and p.is_file()
     )
 
 

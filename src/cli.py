@@ -15,10 +15,30 @@ def cli() -> None:
 
 
 @cli.command()
-@click.option("--input", "-i", "input_path", type=click.Path(exists=True), help="Explicit source image path.")
-@click.option("--style", "-s", "style_name", type=str, default=None, help="Style profile name.")
-@click.option("--algorithm", "-a", type=click.Choice(["nst", "diffusion"]), default=None, help="Algorithm override.")
-@click.option("--mode", "-m", type=click.Choice(["latest_parsed", "random_raw", "random_any"]), default=None, help="Image selection mode.")
+@click.option(
+    "--input",
+    "-i",
+    "input_path",
+    type=click.Path(exists=True),
+    help="Explicit source image path.",
+)
+@click.option(
+    "--style", "-s", "style_name", type=str, default=None, help="Style profile name."
+)
+@click.option(
+    "--algorithm",
+    "-a",
+    type=click.Choice(["nst", "diffusion"]),
+    default=None,
+    help="Algorithm override.",
+)
+@click.option(
+    "--mode",
+    "-m",
+    type=click.Choice(["latest_parsed", "random_raw", "random_any"]),
+    default=None,
+    help="Image selection mode.",
+)
 @click.option("--skip-sync", is_flag=True, help="Skip Google Drive sync.")
 @click.option("--skip-display", is_flag=True, help="Skip Inky display update.")
 @click.option("--skip-upload", is_flag=True, help="Skip uploading results to Drive.")
@@ -66,7 +86,9 @@ def config() -> None:
 
 
 @cli.command()
-@click.option("--subfolder", default="raw", help="Drive subfolder to sync (raw, parsed).")
+@click.option(
+    "--subfolder", default="raw", help="Drive subfolder to sync (raw, parsed)."
+)
 def sync(subfolder: str) -> None:
     """Sync images from Google Drive to local cache."""
     from src.integrations.google_drive import sync_folder

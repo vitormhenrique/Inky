@@ -11,7 +11,11 @@ from src.integrations.google_drive import sync_all, upload_to_drive
 from src.integrations.inky_display import update_display
 from src.logging_utils import get_logger, setup_logging
 from src.models.style_profiles import StyleProfile, get_style
-from src.pipeline.diffusion import is_diffusion_available, run_diffusion, should_use_diffusion
+from src.pipeline.diffusion import (
+    is_diffusion_available,
+    run_diffusion,
+    should_use_diffusion,
+)
 from src.pipeline.nst import find_style_reference, run_nst
 from src.pipeline.postprocess import prepare_display_image, save_outputs
 from src.pipeline.preprocess import preprocess
@@ -61,7 +65,9 @@ def run_pipeline(
     # 2. Select image
     log.info("Step 2: Selecting image…")
     explicit = Path(input_path) if input_path else None
-    source_path = select_image(settings, explicit_path=explicit, mode_override=selection_mode)
+    source_path = select_image(
+        settings, explicit_path=explicit, mode_override=selection_mode
+    )
     log.info("Selected: %s", source_path)
 
     # 3. Resolve style
@@ -88,13 +94,17 @@ def run_pipeline(
             algo = "nst"
             stylised = _run_nst_with_style(content_image, style, settings)
         else:
-            raise RuntimeError(f"Diffusion unavailable ({reason}) and fallback disabled")
+            raise RuntimeError(
+                f"Diffusion unavailable ({reason}) and fallback disabled"
+            )
     else:
         stylised = _run_nst_with_style(content_image, style, settings)
 
     # 6. Post-process & save
     log.info("Step 6: Post-processing & saving…")
-    display_image = prepare_display_image(stylised, settings, style_name=style.display_name)
+    display_image = prepare_display_image(
+        stylised, settings, style_name=style.display_name
+    )
     hires_path, display_path = save_outputs(
         stylised,
         display_image,
