@@ -23,7 +23,7 @@ data/archive/*
 !data/archive/.gitkeep
 data/metadata/*
 !data/metadata/.gitkeep
-data/styles/*
+
 !data/styles/.gitkeep
 data/logs/
 
