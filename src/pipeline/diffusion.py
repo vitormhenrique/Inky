@@ -11,10 +11,12 @@ import re
 from pathlib import Path
 from typing import Any
 
-from PIL import Image
+import numpy as np
+from PIL import Image, ImageEnhance, ImageFilter
 
 from src.config import Settings
 from src.logging_utils import get_logger
+from src.models.reference_analysis import ReferenceStyleAnalysis, analyze_reference_style
 from src.models.style_profiles import StyleProfile
 
 log = get_logger("diffusion")
@@ -189,18 +191,70 @@ def _derive_source_hint(source_name: str | None) -> str | None:
     return " ".join(meaningful)
 
 
-def _derive_reference_hint(reference_path: str | None) -> str | None:
-    """Turn an explicit reference filename into a prompt hint when possible."""
+def _resolve_reference_image_path(
+    settings: Settings,
+    reference_path: str | None,
+) -> Path | None:
     if not reference_path:
         return None
 
-    stem = Path(reference_path).stem
-    cleaned = re.sub(r"[_\-]+", " ", stem).strip().lower()
-    cleaned = re.sub(r"\s+", " ", cleaned)
-    if not cleaned:
-        return None
+    ref = Path(reference_path)
+    if not ref.is_absolute():
+        ref = settings.resolve_path(settings.local_styles_dir) / ref
 
-    return cleaned
+    if ref.is_file():
+        return ref
+    return None
+
+
+def _match_reference_palette(
+    content_image: Image.Image,
+    reference_image: Image.Image,
+) -> Image.Image:
+    """Shift the content palette toward the reference image using RGB statistics."""
+    content_arr = np.asarray(content_image.convert("RGB"), dtype=np.float32)
+    ref_arr = np.asarray(
+        reference_image.convert("RGB").resize(content_image.size, Image.LANCZOS),
+        dtype=np.float32,
+    )
+
+    content_mean = content_arr.mean(axis=(0, 1), keepdims=True)
+    content_std = content_arr.std(axis=(0, 1), keepdims=True) + 1e-6
+    ref_mean = ref_arr.mean(axis=(0, 1), keepdims=True)
+    ref_std = ref_arr.std(axis=(0, 1), keepdims=True) + 1e-6
+
+    matched = (content_arr - content_mean) * (ref_std / content_std) + ref_mean
+    matched = np.clip(matched, 0, 255).astype(np.uint8)
+    return Image.fromarray(matched, mode="RGB")
+
+
+def _condition_diffusion_input(
+    content_image: Image.Image,
+    *,
+    reference_image: Image.Image | None = None,
+    reference_analysis: ReferenceStyleAnalysis | None = None,
+) -> Image.Image:
+    """Precondition img2img input so reference palette/style can guide low-strength runs."""
+    if reference_image is None or reference_analysis is None:
+        return content_image
+
+    matched = _match_reference_palette(content_image, reference_image)
+    conditioned = Image.blend(
+        content_image.convert("RGB"),
+        matched,
+        reference_analysis.palette_mix,
+    )
+    conditioned = ImageEnhance.Color(conditioned).enhance(
+        reference_analysis.saturation_boost
+    )
+    conditioned = ImageEnhance.Contrast(conditioned).enhance(
+        reference_analysis.contrast_boost
+    )
+    if reference_analysis.blur_radius > 0:
+        conditioned = conditioned.filter(
+            ImageFilter.GaussianBlur(radius=reference_analysis.blur_radius)
+        )
+    return conditioned
 
 
 # ── Public API ───────────────────────────────────────────────────────────────
@@ -225,14 +279,20 @@ def run_diffusion(
     if not usable:
         raise RuntimeError(f"Diffusion not available: {reason}")
 
+    source_hint = _derive_source_hint(source_name)
+    reference_image_path = _resolve_reference_image_path(settings, reference_path)
+    reference_image: Image.Image | None = None
+    reference_analysis: ReferenceStyleAnalysis | None = None
+    if reference_image_path is not None:
+        reference_image = Image.open(reference_image_path).convert("RGB")
+        reference_analysis = analyze_reference_style(reference_image, settings)
+
     device = settings.detect_device()
     pipe = _load_pipeline(settings)
-    source_hint = _derive_source_hint(source_name)
-    reference_hint = _derive_reference_hint(reference_path)
     tuning = style.compute_diffusion_tuning(
         content_image.size,
         source_hint=source_hint,
-        reference_hint=reference_hint,
+        reference_analysis=reference_analysis,
     )
 
     _strength = strength if strength is not None else tuning.strength
@@ -244,6 +304,19 @@ def run_diffusion(
     )
 
     img = _prepare_diffusion_input(content_image, settings, device=device)
+    if reference_image is not None and reference_analysis is not None:
+        conditioned = _condition_diffusion_input(
+            img,
+            reference_image=reference_image,
+            reference_analysis=reference_analysis,
+        )
+        img = conditioned
+        log.info(
+            "Applied learned reference conditioning from %s (%s; %s)",
+            reference_image_path,
+            reference_analysis.palette_description,
+            reference_analysis.brush_description,
+        )
     if img.size != content_image.size:
         log.info(
             "Adjusted diffusion input from %dx%d to %dx%d",
@@ -254,14 +327,14 @@ def run_diffusion(
         )
 
     log.info(
-        "Diffusion params — strength=%.2f  guidance=%.1f  steps=%d  size=%dx%d  hint=%s  ref=%s",
+        "Diffusion params — strength=%.2f  guidance=%.1f  steps=%d  size=%dx%d  hint=%s  ref_style=%s",
         _strength,
         _guidance,
         _steps,
         img.width,
         img.height,
         source_hint or "none",
-        reference_hint or "none",
+        reference_analysis.palette_description if reference_analysis else "none",
     )
 
     result = pipe(

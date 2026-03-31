@@ -4,12 +4,33 @@ from __future__ import annotations
 
 import pytest
 
+from src.models.reference_analysis import ReferenceStyleAnalysis
 from src.models.style_profiles import (
     BUILTIN_STYLES,
     SubjectAffinity,
     get_style,
     list_styles,
     suggest_style_for_subject,
+)
+
+
+REFERENCE_ANALYSIS = ReferenceStyleAnalysis(
+    dominant_colors=("blue", "gold"),
+    palette_description="saturated cool blue palette with gold accents",
+    brush_description="sweeping curved brush strokes with flowing paint movement",
+    mood_description="luminous high-contrast paint handling",
+    prompt_fragments=(
+        "saturated cool blue palette with gold accents",
+        "sweeping curved brush strokes with flowing paint movement",
+        "luminous high-contrast paint handling",
+    ),
+    negative_fragments=("washed-out color", "tiny brush strokes", "flat lighting"),
+    palette_mix=0.66,
+    saturation_boost=1.18,
+    contrast_boost=1.05,
+    blur_radius=0.82,
+    style_strength=0.86,
+    broad_stroke_score=0.79,
 )
 
 
@@ -67,17 +88,17 @@ class TestStyleRegistry:
         assert portrait_content > default_content
         assert portrait_style < default_style
 
-    def test_compute_nst_weights_can_boost_starry_night_reference(self):
+    def test_compute_nst_weights_can_boost_strong_reference_analysis(self):
         style = get_style("post_impressionism")
 
         baseline_content, baseline_style = style.compute_nst_weights((687, 1023))
-        starry_content, starry_style = style.compute_nst_weights(
+        analysed_content, analysed_style = style.compute_nst_weights(
             (687, 1023),
-            reference_hint="vangogh starry night",
+            reference_analysis=REFERENCE_ANALYSIS,
         )
 
-        assert starry_content > baseline_content
-        assert starry_style > baseline_style
+        assert analysed_content > baseline_content
+        assert analysed_style > baseline_style
 
     def test_compute_diffusion_tuning_preserves_human_portraits(self):
         style = get_style("cubism")
@@ -94,20 +115,19 @@ class TestStyleRegistry:
         assert "recognizable" in tuning.prompt
         assert len(tuning.prompt.split()) < 70
 
-    def test_compute_diffusion_tuning_uses_starry_night_reference(self):
+    def test_compute_diffusion_tuning_uses_reference_analysis(self):
         style = get_style("post_impressionism")
 
         baseline = style.compute_diffusion_tuning((687, 1023), source_hint="mona lisa")
-        starry = style.compute_diffusion_tuning(
+        analysed = style.compute_diffusion_tuning(
             (687, 1023),
             source_hint="mona lisa",
-            reference_hint="vangogh starry night",
+            reference_analysis=REFERENCE_ANALYSIS,
         )
 
-        assert "starry night" in starry.prompt
-        assert "preserve face" in starry.prompt
-        assert "split face" in starry.negative_prompt
-        assert starry.strength <= 0.22
-        assert starry.strength < baseline.strength
-        assert starry.num_inference_steps > baseline.num_inference_steps
-        assert len(starry.prompt.split()) < len(baseline.prompt.split())
+        assert REFERENCE_ANALYSIS.palette_description in analysed.prompt
+        assert REFERENCE_ANALYSIS.brush_description in analysed.prompt
+        assert "washed-out color" in analysed.negative_prompt
+        assert analysed.strength < baseline.strength
+        assert analysed.num_inference_steps > baseline.num_inference_steps
+        assert len(analysed.prompt.split()) >= len(baseline.prompt.split())

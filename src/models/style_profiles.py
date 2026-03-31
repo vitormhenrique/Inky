@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from src.models.reference_analysis import ReferenceStyleAnalysis
+
 
 class SubjectAffinity(str, Enum):
     HUMAN = "human"
@@ -45,7 +47,7 @@ class StyleProfile(BaseModel):
     def compute_nst_weights(
         self,
         image_size: tuple[int, int] | None = None,
-        reference_hint: str | None = None,
+        reference_analysis: ReferenceStyleAnalysis | None = None,
     ) -> tuple[float, float]:
         """Derive content/style weights from style_intensity.
 
@@ -90,11 +92,9 @@ class StyleProfile(BaseModel):
             content_weight *= 1.05
             style_weight *= 0.90
 
-        if reference_hint:
-            reference_hint = reference_hint.lower()
-            if self.name == "post_impressionism" and "starry night" in reference_hint:
-                content_weight *= 1.02
-                style_weight *= 1.28
+        if reference_analysis is not None:
+            content_weight *= 1.0 + 0.04 * reference_analysis.broad_stroke_score
+            style_weight *= 1.0 + 0.35 * reference_analysis.style_strength
 
         return content_weight, style_weight
 
@@ -135,7 +135,7 @@ class StyleProfile(BaseModel):
         image_size: tuple[int, int],
         *,
         source_hint: str | None = None,
-        reference_hint: str | None = None,
+        reference_analysis: ReferenceStyleAnalysis | None = None,
     ) -> DiffusionTuning:
         """Build image-aware diffusion prompt and parameter tuning."""
         portrait_like = self._is_portrait_like(image_size)
@@ -148,7 +148,7 @@ class StyleProfile(BaseModel):
 
         prompt_parts = [self.prompt]
         negative_parts = [self.negative_prompt]
-        prompt_parts.append("same composition, same subject placement, preserve silhouette")
+        prompt_parts.append("same composition, preserve silhouette")
         negative_parts.append(
             "different composition, unrelated subject, pure abstraction"
         )
@@ -158,10 +158,10 @@ class StyleProfile(BaseModel):
 
         if human_portrait:
             prompt_parts.append(
-                "recognizable seated portrait, preserve face, calm expression, hair shape, shoulders, and hands"
+                "recognizable portrait, preserve face, hair, shoulders, and hands"
             )
             negative_parts.append(
-                "unrecognizable face, missing face, deformed face, asymmetrical eyes, split face, mask-like face, extra fingers, missing hands, cropped head"
+                "unrecognizable face, deformed face, split face, extra fingers, missing hands, cropped head"
             )
             strength -= 0.12 + 0.10 * self.diffusion_content_preservation
             guidance += 0.9 + 0.7 * self.diffusion_content_preservation
@@ -198,42 +198,16 @@ class StyleProfile(BaseModel):
             guidance += 0.4
             steps += 4
 
-        if reference_hint:
-            ref = reference_hint.lower()
-            if self.name == "post_impressionism" and "starry night" in ref:
-                if human_portrait:
-                    prompt_parts = [
-                        (
-                            "post-impressionist oil portrait in van gogh starry night "
-                            "colors and swirling impasto"
-                        ),
-                        "same composition and pose",
-                        "preserve face, hands, and hair silhouette",
-                    ]
-                    if source_hint:
-                        prompt_parts.append(f"{source_hint} portrait")
-                    negative_parts = [
-                        self.negative_prompt,
-                        (
-                            "different composition, abstract subject, distorted face, "
-                            "split face, surreal face, warped mouth, deformed eyes, "
-                            "extra fingers, missing hands"
-                        ),
-                        "flat background, plain sky, weak brushwork, washed-out color",
-                    ]
-                    strength = min(strength - 0.20, 0.22)
-                    guidance = min(max(self.recommended_guidance_scale - 0.5, 6.8), 7.4)
-                    steps = max(steps + 10, 48)
-                else:
-                    prompt_parts.append(
-                        "van gogh starry night, swirling blue sky, luminous stars"
-                    )
-                    negative_parts.append(
-                        "flat background, plain sky, weak brushwork, washed-out color"
-                    )
-                    strength -= 0.06
-                    guidance += 0.5
-                    steps += 8
+        if reference_analysis is not None:
+            prompt_parts.extend(reference_analysis.prompt_fragments)
+            negative_parts.extend(reference_analysis.negative_fragments)
+
+            strength -= 0.20 * reference_analysis.style_strength
+            strength -= 0.10 * reference_analysis.broad_stroke_score
+            if human_portrait:
+                strength -= 0.10 * reference_analysis.style_strength
+            guidance += 0.25 * reference_analysis.style_strength
+            steps += round(10 * reference_analysis.style_strength)
 
         if self.diffusion_prompt_suffix:
             prompt_parts.append(self.diffusion_prompt_suffix)

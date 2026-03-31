@@ -183,6 +183,7 @@ def _run_nst_with_style(
 ) -> Image.Image:
     """Run NST using the style's reference image."""
     from src.pipeline.nst import find_style_reference
+    from src.models.reference_analysis import analyze_reference_style
 
     styles_dir = settings.resolve_path(settings.local_styles_dir)
 
@@ -207,10 +208,10 @@ def _run_nst_with_style(
     if style_intensity is not None:
         cw, sw = 1.0, 10 ** (style_intensity / 2 + 1)
     else:
-        reference_hint = Path(ref_path).stem.replace("_", " ").replace("-", " ")
+        reference_analysis = analyze_reference_style(style_image, settings)
         cw, sw = style.compute_nst_weights(
             content_image.size,
-            reference_hint=reference_hint,
+            reference_analysis=reference_analysis,
         )
 
     return run_nst(
