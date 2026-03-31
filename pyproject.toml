@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "inky-stylize"
+version = "0.1.0"
+description = "Cross-platform local image stylization for Pimoroni Inky Impression e-paper display"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Vitor Henrique"}]
+
+dependencies = [
+    "Pillow>=10.0",
+    "numpy>=1.24",
+    "torch>=2.0",
+    "torchvision>=0.15",
+    "python-dotenv>=1.0",
+    "click>=8.1",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "google-api-python-client>=2.90",
+    "google-auth>=2.22",
+    "schedule>=1.2",
+]
+
+[project.optional-dependencies]
+diffusion = [
+    "diffusers>=0.25",
+    "transformers>=4.35",
+    "accelerate>=0.25",
+    "safetensors>=0.4",
+]
+pi = [
+    "inky[rpi]>=2.0",
+    "RPi.GPIO>=0.7",
+]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.1",
+    "mypy>=1.5",
+]
+
+[project.scripts]
+inky-stylize = "src.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

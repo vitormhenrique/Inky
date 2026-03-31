@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+
+# Environment
+.env
+
+# Data (keep structure via .gitkeep)
+data/cache/*
+!data/cache/.gitkeep
+data/output/*
+!data/output/.gitkeep
+data/display/*
+!data/display/.gitkeep
+data/archive/*
+!data/archive/.gitkeep
+data/metadata/*
+!data/metadata/.gitkeep
+data/styles/*
+!data/styles/.gitkeep
+data/logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Credentials
+*.json
+!pyproject.toml
+service_account*.json
