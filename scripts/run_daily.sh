@@ -11,11 +11,18 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
-# Activate virtualenv if present
-if [[ -f ".venv/bin/activate" ]]; then
-    source .venv/bin/activate
+echo "[$(date)] Starting daily stylisation run"
+
+# Prefer uv run (handles venv activation automatically)
+if command -v uv &> /dev/null; then
+    uv run python -m src.cli run "$@"
+else
+    # Fallback: activate virtualenv manually
+    if [[ -f ".venv/bin/activate" ]]; then
+        source .venv/bin/activate
+    fi
+    python -m src.cli run "$@"
 fi
 
-echo "[$(date)] Starting daily stylisation run"
-python -m src.cli run "$@"
+echo "[$(date)] Daily run complete"
 echo "[$(date)] Daily run complete"

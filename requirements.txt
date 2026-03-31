@@ -1,3 +1,7 @@
+# This file is kept for reference. Dependencies are managed via pyproject.toml.
+# Install with:  uv sync
+# Install extras: uv pip install -e ".[diffusion]"
+#
 # ─── Core ───────────────────────────────────
 Pillow>=10.0
 numpy>=1.24

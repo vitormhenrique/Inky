@@ -20,9 +20,9 @@ The system watches a Google Drive folder, selects an image, applies a classic pa
 
 ## 2. Assumptions
 
-- **Python 3.10+** is available on both platforms.  
+- **Python 3.14** managed via [uv](https://docs.astral.sh/uv/) on both platforms.  
 - **Raspberry Pi**: 64-bit OS (Bookworm), 4GB+ RAM recommended. Diffusion on Pi is experimental — NST is the reliable baseline.  
-- **MacBook Pro**: Apple Silicon (M1/M2/M3). MPS acceleration used for both NST and diffusion.  
+- **MacBook Pro**: Apple Silicon (M1/M2/M3/M4). MPS acceleration used for both NST and diffusion.  
 - **Google Drive**: Service-account credentials are used for unattended sync. Drive is for shared storage only — no cloud processing.  
 - **Inky Impression 13.3"**: Connected via SPI on the Pi. On macOS the display is simulated (PNG file saved).  
 - Style reference paintings must be provided by the user in `data/styles/<style_name>/`.
@@ -128,7 +128,6 @@ Inky/
 ```bash
 git clone <repo-url> && cd Inky
 chmod +x scripts/setup_mac.sh && ./scripts/setup_mac.sh
-source .venv/bin/activate
 # Edit .env with your settings
 cp .env.example .env
 
@@ -137,7 +136,7 @@ mkdir -p data/styles/renaissance_portrait
 cp ~/my_reference_painting.jpg data/styles/renaissance_portrait/reference.jpg
 
 # Run with a local image (no Drive, no display):
-python -m src.cli run -i ~/photo.jpg --skip-sync --skip-display --skip-upload
+uv run python -m src.cli run -i ~/photo.jpg --skip-sync --skip-display --skip-upload
 ```
 
 ### Raspberry Pi
@@ -145,11 +144,10 @@ python -m src.cli run -i ~/photo.jpg --skip-sync --skip-display --skip-upload
 ```bash
 git clone <repo-url> && cd Inky
 chmod +x scripts/setup_pi.sh && ./scripts/setup_pi.sh
-source .venv/bin/activate
 cp .env.example .env
 # Edit .env ...
 
-python -m src.cli run -i ~/photo.jpg --skip-sync
+uv run python -m src.cli run -i ~/photo.jpg --skip-sync
 ```
 
 ---
@@ -158,35 +156,35 @@ python -m src.cli run -i ~/photo.jpg --skip-sync
 
 ```bash
 # Full pipeline
-python -m src.cli run
+uv run python -m src.cli run
 
 # Explicit image + style
-python -m src.cli run -i photo.jpg -s baroque_oil_painting
+uv run python -m src.cli run -i photo.jpg -s baroque_oil_painting
 
 # Force diffusion algorithm
-python -m src.cli run -a diffusion
+uv run python -m src.cli run -a diffusion
 
 # Use a specific selection mode
-python -m src.cli run -m random_raw
+uv run python -m src.cli run -m random_raw
 
 # List available styles
-python -m src.cli styles
+uv run python -m src.cli styles
 
 # Show configuration
-python -m src.cli config
+uv run python -m src.cli config
 
 # Sync Google Drive
-python -m src.cli sync
-python -m src.cli sync --subfolder parsed
+uv run python -m src.cli sync
+uv run python -m src.cli sync --subfolder parsed
 
 # Push image to display
-python -m src.cli display data/display/some_image.png
+uv run python -m src.cli display data/display/some_image.png
 
 # View display history
-python -m src.cli history
+uv run python -m src.cli history
 
 # Start built-in scheduler (blocking)
-python -m src.cli schedule
+uv run python -m src.cli schedule
 ```
 
 ---
@@ -388,9 +386,8 @@ Files are synced to `data/cache/`. The pipeline works from cache even when offli
 ## 14. Testing
 
 ```bash
-source .venv/bin/activate
-pytest tests/ -v
-pytest tests/ -v --cov=src
+uv run pytest tests/ -v
+uv run pytest tests/ -v --cov=src
 ```
 
 ### Testing strategy

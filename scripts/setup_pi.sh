@@ -2,7 +2,8 @@
 # setup_pi.sh — Raspberry Pi setup script
 #
 # Run on a fresh Raspberry Pi OS (Bookworm or later, 64-bit recommended).
-# Installs system dependencies, creates a venv, and installs Python packages.
+# Installs system dependencies, creates a uv venv, and installs Python packages.
+# Requires: uv (https://docs.astral.sh/uv/)
 set -euo pipefail
 
 echo "═══════════════════════════════════════════════"
@@ -17,28 +18,30 @@ cd "$PROJECT_DIR"
 echo "Installing system packages…"
 sudo apt-get update
 sudo apt-get install -y \
-    python3-pip \
-    python3-venv \
     python3-dev \
     libopenblas-dev \
     libjpeg-dev \
     zlib1g-dev \
     libffi-dev \
-    git
+    git \
+    curl
 
-# ── Python venv ──────────────────────────────────────────────────
-echo "Creating Python virtual environment…"
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip setuptools wheel
+# ── Install uv ───────────────────────────────────────────────────
+if ! command -v uv &> /dev/null; then
+    echo "Installing uv…"
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+fi
 
-# ── Install core dependencies ────────────────────────────────────
+# ── Create venv & install deps ───────────────────────────────────
+echo "Creating Python 3.14 virtual environment with uv…"
+uv venv --python 3.14
 echo "Installing Python dependencies…"
-pip install -r requirements.txt
+uv sync
 
 # ── Install Inky display library ─────────────────────────────────
 echo "Installing Inky display driver…"
-pip install "inky[rpi]>=2.0"
+uv pip install "inky[rpi]>=2.0"
 
 # ── .env file ────────────────────────────────────────────────────
 if [[ ! -f .env ]]; then
@@ -48,7 +51,7 @@ fi
 
 # ── Create data directories ──────────────────────────────────────
 echo "Creating data directories…"
-python3 -c "from src.config import get_settings; from src.utils.files import ensure_dirs; ensure_dirs(get_settings())"
+uv run python -c "from src.config import get_settings; from src.utils.files import ensure_dirs; ensure_dirs(get_settings())"
 
 # ── Cron job suggestion ──────────────────────────────────────────
 echo ""
@@ -62,5 +65,4 @@ echo ""
 echo "Or create a systemd timer — see README.md for instructions."
 echo ""
 echo "Test the pipeline with:"
-echo "  source .venv/bin/activate"
-echo "  python -m src.cli run --skip-sync --skip-display -i path/to/test_image.jpg"
+echo "  uv run python -m src.cli run --skip-sync --skip-display -i path/to/test_image.jpg"
