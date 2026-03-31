@@ -57,3 +57,27 @@ class TestStyleRegistry:
                 style.recommended_guidance_scale > 0
             ), f"{name} guidance_scale invalid"
             assert style.recommended_steps > 0, f"{name} steps invalid"
+
+    def test_compute_nst_weights_preserves_portraits_more(self):
+        style = get_style("cubism")
+
+        default_content, default_style = style.compute_nst_weights()
+        portrait_content, portrait_style = style.compute_nst_weights((687, 1023))
+
+        assert portrait_content > default_content
+        assert portrait_style < default_style
+
+    def test_compute_diffusion_tuning_preserves_human_portraits(self):
+        style = get_style("cubism")
+
+        tuning = style.compute_diffusion_tuning(
+            (687, 1023),
+            source_hint="mona lisa",
+        )
+
+        assert tuning.strength < style.recommended_strength
+        assert tuning.guidance_scale > style.recommended_guidance_scale
+        assert tuning.num_inference_steps >= style.recommended_steps
+        assert "mona lisa" in tuning.prompt
+        assert "recognizable" in tuning.prompt
+        assert len(tuning.prompt.split()) < 70

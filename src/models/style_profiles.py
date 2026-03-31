@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
@@ -14,6 +15,15 @@ class SubjectAffinity(str, Enum):
     BOTH = "both"
 
 
+@dataclass(frozen=True)
+class DiffusionTuning:
+    prompt: str
+    negative_prompt: str
+    strength: float
+    guidance_scale: float
+    num_inference_steps: int
+
+
 class StyleProfile(BaseModel):
     """Complete description of a target painting style."""
 
@@ -23,8 +33,7 @@ class StyleProfile(BaseModel):
     # Diffusion prompts
     prompt: str
     negative_prompt: str = (
-        "blurry, low quality, distorted face, extra limbs, watermark, text, "
-        "modern, digital art, 3d render, anime"
+        "blurry, distorted face, extra limbs, watermark, text, 3d render, anime"
     )
 
     # NST guidance
@@ -33,7 +42,10 @@ class StyleProfile(BaseModel):
     )
     nst_style_intensity: float = 6.0  # 1 (barely visible) → 10 (maximum style)
 
-    def compute_nst_weights(self) -> tuple[float, float]:
+    def compute_nst_weights(
+        self,
+        image_size: tuple[int, int] | None = None,
+    ) -> tuple[float, float]:
         """Derive content/style weights from style_intensity.
 
         Returns ``(content_weight, style_weight)``.
@@ -50,7 +62,34 @@ class StyleProfile(BaseModel):
           9  → very heavy                  sw ≈ 3 000 000
           10 → extreme                     sw ≈ 10 000 000
         """
-        return 1.0, 10 ** (self.nst_style_intensity / 2 + 1)
+        content_weight = 1.0
+        style_weight = 10 ** (self.nst_style_intensity / 2 + 1)
+
+        if image_size is None:
+            return content_weight, style_weight
+
+        portrait_like = self._is_portrait_like(image_size)
+        if portrait_like and self.subject_affinity != SubjectAffinity.ANIMAL:
+            content_weight *= 1.15
+            style_weight *= 0.82
+
+        if self.name == "cubism":
+            if portrait_like:
+                content_weight *= 1.10
+                style_weight *= 0.92
+            else:
+                style_weight *= 1.05
+        elif self.name == "naturalist_oil_portrait":
+            content_weight *= 1.12
+            style_weight *= 0.80
+        elif (
+            self.name in {"fauvism_bold_color", "expressionism_bold_color"}
+            and portrait_like
+        ):
+            content_weight *= 1.05
+            style_weight *= 0.90
+
+        return content_weight, style_weight
 
     # Pre / post guidance (human-readable notes, used in docs / logs)
     preprocessing_notes: str = ""
@@ -63,6 +102,110 @@ class StyleProfile(BaseModel):
     recommended_strength: float = 0.65
     recommended_guidance_scale: float = 7.5
     recommended_steps: int = 30
+    diffusion_content_preservation: float = 0.55
+    diffusion_prompt_suffix: str = ""
+    diffusion_negative_prompt_extra: str = ""
+
+    @staticmethod
+    def _is_portrait_like(image_size: tuple[int, int]) -> bool:
+        width, height = image_size
+        return height / max(width, 1) >= 1.15
+
+    @staticmethod
+    def _join_limited(parts: list[str], max_words: int) -> str:
+        kept: list[str] = []
+        word_count = 0
+        for part in parts:
+            part_words = len(part.split())
+            if kept and word_count + part_words > max_words:
+                break
+            kept.append(part)
+            word_count += part_words
+        return ", ".join(kept)
+
+    def compute_diffusion_tuning(
+        self,
+        image_size: tuple[int, int],
+        *,
+        source_hint: str | None = None,
+    ) -> DiffusionTuning:
+        """Build image-aware diffusion prompt and parameter tuning."""
+        portrait_like = self._is_portrait_like(image_size)
+        human_portrait = portrait_like and self.subject_affinity != SubjectAffinity.ANIMAL
+        animal_subject = self.subject_affinity == SubjectAffinity.ANIMAL
+
+        strength = self.recommended_strength
+        guidance = self.recommended_guidance_scale
+        steps = self.recommended_steps
+
+        prompt_parts = [self.prompt]
+        negative_parts = [self.negative_prompt]
+        prompt_parts.append("same composition, same subject placement, preserve silhouette")
+        negative_parts.append(
+            "different composition, unrelated subject, pure abstraction"
+        )
+
+        if source_hint:
+            prompt_parts.append(f"same {source_hint}")
+
+        if human_portrait:
+            prompt_parts.append(
+                "recognizable seated portrait, preserve face, hair shape, shoulders, and hands"
+            )
+            negative_parts.append(
+                "unrecognizable face, missing face, deformed face, extra fingers, missing hands, cropped head"
+            )
+            strength -= 0.12 + 0.10 * self.diffusion_content_preservation
+            guidance += 0.9 + 0.7 * self.diffusion_content_preservation
+            steps += 6
+        elif animal_subject:
+            prompt_parts.append(
+                "preserve the animal anatomy, head shape, body silhouette, and pose from the source image"
+            )
+            negative_parts.append(
+                "distorted anatomy, extra legs, missing head, unrecognizable animal"
+            )
+            strength -= 0.08 + 0.06 * self.diffusion_content_preservation
+            guidance += 0.6
+            steps += 4
+        else:
+            strength -= 0.06 * self.diffusion_content_preservation
+            guidance += 0.3 * self.diffusion_content_preservation
+
+        if self.name == "cubism":
+            prompt_parts.append(
+                "recognizable sitter, not pure abstraction"
+            )
+            negative_parts.append(
+                "nonfigurative geometry, random shapes replacing subject, face dissolved"
+            )
+            strength -= 0.10
+            guidance += 0.9
+            steps += 8
+        elif self.name == "naturalist_oil_portrait":
+            prompt_parts.append(
+                "high fidelity to the source subject identity and pose"
+            )
+            strength -= 0.08
+            guidance += 0.4
+            steps += 4
+
+        if self.diffusion_prompt_suffix:
+            prompt_parts.append(self.diffusion_prompt_suffix)
+        if self.diffusion_negative_prompt_extra:
+            negative_parts.append(self.diffusion_negative_prompt_extra)
+
+        strength = round(min(max(strength, 0.35), 0.82), 2)
+        guidance = round(min(max(guidance, 6.0), 12.0), 1)
+        steps = min(max(steps, 24), 60)
+
+        return DiffusionTuning(
+            prompt=self._join_limited(prompt_parts, max_words=60),
+            negative_prompt=self._join_limited(negative_parts, max_words=45),
+            strength=strength,
+            guidance_scale=guidance,
+            num_inference_steps=steps,
+        )
 
 
 # ─── Built-in style registry ─────────────────────────────────────────────────
@@ -90,6 +233,7 @@ _register(
         subject_affinity=SubjectAffinity.HUMAN,
         recommended_strength=0.60,
         recommended_guidance_scale=7.5,
+        diffusion_content_preservation=0.75,
     )
 )
 
@@ -257,6 +401,7 @@ _register(
         subject_affinity=SubjectAffinity.BOTH,
         recommended_strength=0.55,
         recommended_guidance_scale=7.0,
+        diffusion_content_preservation=0.80,
     )
 )
 
@@ -265,18 +410,23 @@ _register(
         name="cubism",
         display_name="Cubism",
         prompt=(
-            "a Cubist painting, fractured geometric planes, angular forms, "
-            "multiple viewpoints simultaneously, bold outlines, "
-            "Juan Gris and Fernand Léger style, analytical cubism"
+            "a figurative Cubist painting, angular faceted planes, Juan Gris style"
         ),
         nst_reference_subdir="cubism",
         nst_style_intensity=7.5,
         preprocessing_notes="Strong geometric shapes in source photos transfer best. Portraits and still lifes work well.",
         postprocessing_notes="Boost contrast slightly; the geometric fragmentation should be clearly defined.",
         subject_affinity=SubjectAffinity.BOTH,
-        recommended_strength=0.75,
-        recommended_guidance_scale=8.0,
-        recommended_steps=35,
+        recommended_strength=0.62,
+        recommended_guidance_scale=9.0,
+        recommended_steps=42,
+        diffusion_content_preservation=0.90,
+        diffusion_prompt_suffix=(
+            "museum painting texture, muted earthy palette, coherent figure"
+        ),
+        diffusion_negative_prompt_extra=(
+            "no sitter, lost anatomy, melted face, missing hands"
+        ),
     )
 )
 

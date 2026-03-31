@@ -197,20 +197,25 @@ just styles                       # list available styles
 just raw                          # list images in data/raw
 
 # single image
-just stylize photo.jpg kirchner_marcella.jpg
+just stylize photo.jpg cubism
 just stylize photo.jpg cubism diffusion     # use diffusion method
+just stylize photo.jpg cubism nst 8.5       # stronger NST style transfer
+just stylize Mona_Lisa.jpg cubism/popova_painterly_architectonic.jpg nst 10.0
 
 # find image by partial name (first match only, single output)
 just stylize-by-name sunset cubism
+just stylize-by-name sunset cubism nst 6.0
 just stylize-by-name sunset cubism diffusion
 
 # all images in data/raw
 just stylize-all impressionism
+just stylize-all impressionism nst 5.5
 just stylize-all impressionism diffusion    # use diffusion method
 just stylize-all-random                     # random style per image
 
 # batch generate: match ALL images by name, N variations each
 just generate sunset cubism 5               # 5 outputs per matched image
+just generate sunset cubism 5 nst 9.0       # 5 stronger NST variations per match
 just generate sunset cubism 3 diffusion     # use diffusion method
 
 # reference images
@@ -234,14 +239,27 @@ just stylize image.jpg cubism diffusion
 just generate cat impressionism 4 diffusion
 ```
 
+### NST Intensity
+
+`intensity` is the optional last argument in the `just` recipes and only affects `nst`. Lower values keep more of the source image; higher values push harder toward the reference painting. Because `intensity` comes after `method`, pass `nst` explicitly when you want to set it:
+
+```bash
+just stylize image.jpg cubism nst 4.5
+just stylize image.jpg cubism nst 8.5
+just stylize-by-name mona cubism nst 9.5
+just stylize Mona_Lisa.jpg cubism/popova_painterly_architectonic.jpg nst 10.0
+just stylize-all cubism nst 7.0
+just generate mona cubism 3 nst 9.0
+```
+
 ### Stylize vs Generate
 
 | Recipe | Purpose | Signature |
 |---|---|---|
-| `stylize` | Process **one explicit file** with a style | `just stylize <path> <style> [method]` |
-| `stylize-by-name` | Find the **first match** by name in `data/raw`, produce **one** output | `just stylize-by-name <name> <style> [method]` |
-| `stylize-all` | Process **every image** in `data/raw` with a style (one output each) | `just stylize-all <style> [method]` |
-| `generate` | Find **all matches** by name in `data/raw`, produce **N outputs per match** | `just generate <name> <style> <count> [method]` |
+| `stylize` | Process **one explicit file** with a style | `just stylize <path> <style> [method] [intensity]` |
+| `stylize-by-name` | Find the **first match** by name in `data/raw`, produce **one** output | `just stylize-by-name <name> <style> [method] [intensity]` |
+| `stylize-all` | Process **every image** in `data/raw` with a style (one output each) | `just stylize-all <style> [method] [intensity]` |
+| `generate` | Find **all matches** by name in `data/raw`, produce **N outputs per match** | `just generate <name> <style> <count> [method] [intensity]` |
 
 Use `stylize` / `stylize-by-name` for quick single runs. Use `generate` when you want multiple variations of the same source image (e.g. `just generate lais cubism 5` creates 5 cubist renderings for every `lais*` image in `data/raw`).
 

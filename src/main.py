@@ -91,19 +91,34 @@ def run_pipeline(
         usable, reason = should_use_diffusion(settings)
         if usable:
             log.info("Using diffusion img2img")
-            stylised = run_diffusion(content_image, style, settings)
+            stylised = run_diffusion(
+                content_image,
+                style,
+                settings,
+                source_name=source_path.stem,
+            )
         elif settings.fallback_to_nst:
             log.warning("Diffusion unavailable (%s) — falling back to NST", reason)
             algo = "nst"
             stylised = _run_nst_with_style(
-                content_image, style, settings, style_intensity
+                content_image,
+                style,
+                settings,
+                style_intensity,
+                reference_path,
             )
         else:
             raise RuntimeError(
                 f"Diffusion unavailable ({reason}) and fallback disabled"
             )
     else:
-        stylised = _run_nst_with_style(content_image, style, settings, style_intensity)
+        stylised = _run_nst_with_style(
+            content_image,
+            style,
+            settings,
+            style_intensity,
+            reference_path,
+        )
 
     # 6. Post-process & save
     log.info("Step 6: Post-processing & saving…")
@@ -166,7 +181,7 @@ def _run_nst_with_style(
     reference_path: str | None = None,
 ) -> Image.Image:
     """Run NST using the style's reference image."""
-    from src.pipeline.nst import find_random_style_reference
+    from src.pipeline.nst import find_style_reference
 
     styles_dir = settings.resolve_path(settings.local_styles_dir)
 
@@ -179,7 +194,11 @@ def _run_nst_with_style(
             raise FileNotFoundError(f"Reference image not found: {ref}")
         ref_path = ref
     else:
-        ref_path = find_random_style_reference(styles_dir, style.nst_reference_subdir)
+        ref_path = find_style_reference(
+            styles_dir,
+            style.nst_reference_subdir,
+            target_size=content_image.size,
+        )
 
     log.info("NST reference: %s", ref_path)
     style_image = load_image(ref_path)
@@ -187,7 +206,7 @@ def _run_nst_with_style(
     if style_intensity is not None:
         cw, sw = 1.0, 10 ** (style_intensity / 2 + 1)
     else:
-        cw, sw = style.compute_nst_weights()
+        cw, sw = style.compute_nst_weights(content_image.size)
 
     return run_nst(
         content_image,
