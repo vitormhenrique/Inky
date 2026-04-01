@@ -206,6 +206,10 @@ just stylize Mona_Lisa.jpg cubism/popova_painterly_architectonic.jpg nst 10.0
 just stylize-by-name sunset cubism
 just stylize-by-name sunset cubism nst 6.0
 just stylize-by-name sunset cubism diffusion
+just sweep-by-name sunset
+just sweep-by-name sunset diffusion
+just sweep-all
+just sweep-all nst 6.5
 
 # all images in data/raw
 just stylize-all impressionism
@@ -230,7 +234,7 @@ just download-refs                # download Wikimedia reference paintings
 
 | Method | Flag | Description |
 |---|---|---|
-| `nst` | `-a nst` or `method='nst'` (default) | **Neural Style Transfer** — VGG-19 feature extractor with L-BFGS optimiser. Transfers texture/colour from a reference painting. Runs on CPU, MPS (Apple Silicon), or CUDA. ~300 steps, fully deterministic per run. |
+| `nst` | `-a nst` or `method='nst'` (default) | **Neural Style Transfer** — VGG-19 feature extractor with L-BFGS optimiser. Transfers texture/colour from a reference painting. Runs on CPU, MPS (Apple Silicon), or CUDA. ~300 steps, deterministic for a fixed source, reference, and weight setup. |
 | `diffusion` | `-a diffusion` or `method='diffusion'` | **Stable Diffusion img2img** — Uses HuggingFace `diffusers` with style-specific prompts. More creative/varied output, but requires more VRAM. Falls back to NST when unavailable. |
 
 All `just` recipes default to `nst`. Pass the method as the last argument to switch:
@@ -258,10 +262,14 @@ just generate mona cubism 3 nst 9.0
 |---|---|---|
 | `stylize` | Process **one explicit file** with a style | `just stylize <path> <style> [method] [intensity]` |
 | `stylize-by-name` | Find the **first match** by name in `data/raw`, produce **one** output | `just stylize-by-name <name> <style> [method] [intensity]` |
+| `sweep-by-name` | Find the **first match** by name and render **every style/reference combination** with progress output | `just sweep-by-name <name> [method] [intensity]` |
+| `sweep-all` | Process **every image** in `data/raw` through **every style/reference combination** with progress output | `just sweep-all [method] [intensity]` |
 | `stylize-all` | Process **every image** in `data/raw` with a style (one output each) | `just stylize-all <style> [method] [intensity]` |
 | `generate` | Find **all matches** by name in `data/raw`, produce **N outputs per match** | `just generate <name> <style> <count> [method] [intensity]` |
 
-Use `stylize` / `stylize-by-name` for quick single runs. Use `generate` when you want multiple variations of the same source image (e.g. `just generate lais cubism 5` creates 5 cubist renderings for every `lais*` image in `data/raw`).
+Use `stylize` / `stylize-by-name` for quick single runs. Use `generate` when you want multiple variations of the same source image (e.g. `just generate lais cubism 5` creates 5 cubist renderings for every `lais*` image in `data/raw`). For NST batches, `generate` rotates through the style folder's reference paintings and slightly varies NST weights per slot so repeated renders do not collapse to the same output.
+Use `sweep-by-name` when you want to brute-force one source image through every built-in style and every reference painting inside each style folder. It prints progress for each render as it goes.
+Use `sweep-all` when you want to do the same exhaustive sweep for every raw image in the folder.
 
 ---
 

@@ -113,13 +113,22 @@ stylize-all style method='nst' intensity='':
 generate name style count method='nst' intensity='':
     #!/usr/bin/env bash
     set -euo pipefail
+    style_arg="{{style}}"
+    ref_flag=""
+    if [[ "$style_arg" == */* ]]; then
+        style_name="${style_arg%%/*}"
+        ref_image="${style_arg}"
+        ref_flag="--reference $ref_image"
+    else
+        style_name="$style_arg"
+    fi
     mapfile -t matches < <(find "{{raw_dir}}" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.bmp" -o -iname "*.tiff" -o -iname "*.webp" \) | grep -i "{{name}}")
     if [[ ${#matches[@]} -eq 0 ]]; then
         echo "Error: no images matching '{{name}}' in {{raw_dir}}"
         exit 1
     fi
     echo "Found ${#matches[@]} image(s) matching '{{name}}'"
-    echo "Generating {{count}} variation(s) per image with style '{{style}}' ({{method}})..."
+    echo "Generating {{count}} variation(s) per image with style '$style_name' ({{method}})..."
     intensity_flag=""
     if [[ -n "{{intensity}}" ]]; then
         intensity_flag="--style-intensity {{intensity}}"
@@ -133,13 +142,54 @@ generate name style count method='nst' intensity='':
             echo "──── $(basename "$f") [${i}/{{count}}] ────"
             uv run python -m src.cli run \
                 --input "$f" \
-                --style "{{style}}" \
+                --style "$style_name" \
                 --algorithm "{{method}}" \
-                $intensity_flag \
+                $ref_flag $intensity_flag \
+                --variation-index "$i" \
+                --variation-count "{{count}}" \
                 --skip-sync --skip-display --skip-upload
         done
     done
     echo "Done! Generated $((${#matches[@]} * {{count}})) image(s) in {{display_dir}}"
+
+# sweep one matched image through every style/reference combination
+[group('stylize')]
+sweep-by-name name method='nst' intensity='':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    intensity_flag=""
+    if [[ -n "{{intensity}}" ]]; then
+        intensity_flag="--style-intensity {{intensity}}"
+    fi
+    uv run python -m src.cli sweep-by-name "{{name}}" \
+        --algorithm "{{method}}" \
+        $intensity_flag
+
+# sweep every raw image through every style/reference combination
+[group('stylize')]
+sweep-all method='nst' intensity='':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mapfile -t files < <(find "{{raw_dir}}" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.bmp" -o -iname "*.tiff" -o -iname "*.webp" \) | sort)
+    if [[ ${#files[@]} -eq 0 ]]; then
+        echo "No images found in {{raw_dir}}"
+        exit 1
+    fi
+    intensity_flag=""
+    if [[ -n "{{intensity}}" ]]; then
+        intensity_flag="--style-intensity {{intensity}}"
+    fi
+    echo "Sweeping ${#files[@]} raw image(s) across all styles and references ({{method}})..."
+    total=${#files[@]}
+    for idx in "${!files[@]}"; do
+        f="${files[$idx]}"
+        current=$((idx + 1))
+        echo "════════ [${current}/${total}] $(basename "$f") ════════"
+        uv run python -m src.cli sweep "$f" \
+            --algorithm "{{method}}" \
+            $intensity_flag
+    done
+    echo "Done! Completed exhaustive sweep for ${#files[@]} image(s)."
 
 # stylize ALL images in data/raw with a random style each
 [group('stylize')]

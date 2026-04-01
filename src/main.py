@@ -40,6 +40,8 @@ def run_pipeline(
     skip_archive: bool = True,
     style_intensity: float | None = None,
     reference_path: str | None = None,
+    variation_index: int | None = None,
+    variation_count: int | None = None,
 ) -> Path:
     """Execute the full stylisation pipeline and return the display image path.
 
@@ -107,6 +109,8 @@ def run_pipeline(
                 settings,
                 style_intensity,
                 reference_path,
+                variation_index=variation_index,
+                variation_count=variation_count,
             )
         else:
             raise RuntimeError(
@@ -119,6 +123,8 @@ def run_pipeline(
             settings,
             style_intensity,
             reference_path,
+            variation_index=variation_index,
+            variation_count=variation_count,
         )
 
     # 6. Post-process & save
@@ -180,6 +186,9 @@ def _run_nst_with_style(
     settings: Settings,
     style_intensity: float | None = None,
     reference_path: str | None = None,
+    *,
+    variation_index: int | None = None,
+    variation_count: int | None = None,
 ) -> Image.Image:
     """Run NST using the style's reference image."""
     from src.pipeline.nst import find_style_reference
@@ -200,6 +209,8 @@ def _run_nst_with_style(
             styles_dir,
             style.nst_reference_subdir,
             target_size=content_image.size,
+            variation_index=variation_index,
+            variation_count=variation_count,
         )
 
     log.info("NST reference: %s", ref_path)
@@ -214,6 +225,22 @@ def _run_nst_with_style(
             reference_analysis=reference_analysis,
         )
 
+    cw, sw = _apply_nst_variation_weights(
+        cw,
+        sw,
+        variation_index=variation_index,
+        variation_count=variation_count,
+    )
+    if variation_index is not None and variation_count and variation_count > 1:
+        slot = ((variation_index - 1) % variation_count) + 1
+        log.info(
+            "NST batch variation %d/%d — content_weight=%.3f style_weight=%.1f",
+            slot,
+            variation_count,
+            cw,
+            sw,
+        )
+
     return run_nst(
         content_image,
         style_image,
@@ -221,3 +248,25 @@ def _run_nst_with_style(
         content_weight=cw,
         style_weight=sw,
     )
+
+
+def _apply_nst_variation_weights(
+    content_weight: float,
+    style_weight: float,
+    *,
+    variation_index: int | None = None,
+    variation_count: int | None = None,
+) -> tuple[float, float]:
+    """Spread NST weights across batch runs without affecting single renders."""
+    if variation_index is None or variation_count is None or variation_count <= 1:
+        return content_weight, style_weight
+
+    minimum_scale = 0.82
+    maximum_scale = 1.18
+    step = (maximum_scale - minimum_scale) / max(variation_count - 1, 1)
+    raw_scales = [minimum_scale + step * idx for idx in range(variation_count)]
+    scales = sorted(raw_scales, key=lambda value: (abs(value - 1.0), value < 1.0))
+    slot = (max(variation_index, 1) - 1) % variation_count
+    style_scale = scales[slot]
+    content_scale = 1.0 - (style_scale - 1.0) * 0.35
+    return content_weight * content_scale, style_weight * style_scale

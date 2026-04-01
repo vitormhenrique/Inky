@@ -427,14 +427,28 @@ def find_style_reference(
     style_subdir: str,
     *,
     target_size: tuple[int, int] | None = None,
+    variation_index: int | None = None,
+    variation_count: int | None = None,
 ) -> Path:
     """Pick the reference image whose aspect ratio best matches the target image."""
     refs = _collect_style_references(styles_dir, style_subdir)
-    if target_size is None or len(refs) == 1:
+    if target_size is not None and len(refs) > 1:
+        target_ratio = target_size[0] / target_size[1]
+        refs = sorted(
+            refs,
+            key=lambda ref: (_aspect_ratio_distance(ref, target_ratio), ref.name),
+        )
+
+    if (
+        variation_index is None
+        or variation_count is None
+        or variation_count <= 1
+        or len(refs) == 1
+    ):
         return refs[0]
 
-    target_ratio = target_size[0] / target_size[1]
-    return min(refs, key=lambda ref: (_aspect_ratio_distance(ref, target_ratio), ref.name))
+    slot = (max(variation_index, 1) - 1) % len(refs)
+    return refs[slot]
 
 
 def find_random_style_reference(styles_dir: Path, style_subdir: str) -> Path:
